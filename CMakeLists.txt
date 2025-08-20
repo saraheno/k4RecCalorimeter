@@ -6,6 +6,7 @@ cmake_policy(SET CMP0144 NEW)
 cmake_policy(SET CMP0167 NEW)
 
 include(GNUInstallDirs)
+set(CMAKE_INSTALL_LIBDIR lib)
 include(CTest)
 include(cmake/Key4hepConfig.cmake)
 
