@@ -64,8 +64,18 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
   std::string colName    = m_calCollections;
   CHT::Layout caloLayout = layoutFromString(colName);
 
+  // hack for now, hardcode cell id
+  auto *detector = m_geoSvc->getDetector();
 
-  initString = m_geoSvc->constantAsString(m_encodingStringVariable.value());
+
+  auto &constants = detector->constants();
+  debug() << "Count of constants:" << constants.size() << endmsg;
+  debug() << "Hit Count:" << SimCaloHits.size() << endmsg; 
+  for (auto &[k, v] : constants) {
+    debug() << "Detector Constant:" << k << endmsg;
+  }
+  //  initString = m_geoSvc->constantAsString(m_encodingStringVariable.value());
+  initString =       "system:3,ix:-7,iy:-7,slice:3,layer:3,wc:3";
   dd4hep::DDSegmentation::BitFieldCoder bitFieldCoder(initString);  // check!
 
 
@@ -81,6 +91,21 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
     float calibr_coeff = 1.;
     calibr_coeff       = m_calibrCoeffCal;
     float hitEnergy    = calibr_coeff * energy;
+
+    debug() << "Contributions to this hit " << hit.contributions_size() << ",";
+    debug() << "Available? " << hit.isAvailable() << endmsg;
+    if (hit.isAvailable()) { 
+      for (auto step = hit.contributions_begin(); step != hit.contributions_end(); step++) {
+	edm4hep::CaloHitContribution contrib = *step;
+	if (contrib.isAvailable()) {
+	  debug() << contrib.getPDG() << " time:" << contrib.getTime() << " ns." << endmsg;
+	}
+	else {
+	  debug() << "Contrib not available" << endmsg;
+	}
+      }
+    }
+    
     if (hitEnergy > m_maxHitEnergyCal) {
       hitEnergy = m_maxHitEnergyCal;
     }
@@ -118,4 +143,9 @@ bool DualCrysCalDigi::useLayer(CHT::Layout caloLayout, unsigned int layer) const
   }
 }  //useLayer
 
+// Placeholder
+CHT::Layout layoutFromString(const std::string& name) {
+  
+  return CHT::any; 
 
+}
