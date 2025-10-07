@@ -79,47 +79,62 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
   dd4hep::DDSegmentation::BitFieldCoder bitFieldCoder(initString);  // check!
 
 
-  for (const auto& hit : SimCaloHits) {
-    const int cellID = hit.getCellID();
-    float     energy = hit.getEnergy();
-    //Get the layer number
-    unsigned int layer = bitFieldCoder.get(cellID, "layer");
-    //Check if we want to use this later, else go to the next hit
-    if (!useLayer(caloLayout, layer))
-      continue;
-    //Do the digitalization
-    float calibr_coeff = 1.;
-    calibr_coeff       = m_calibrCoeffCal;
-    float hitEnergy    = calibr_coeff * energy;
+  for (const auto& hit : SimCaloHits)
+    {
+      const int cellID = hit.getCellID();
+      float     energy = hit.getEnergy();
+      //Get the layer number
+      unsigned int layer = bitFieldCoder.get(cellID, "layer");
+      //Check if we want to use this later, else go to the next hit
+      if (!useLayer(caloLayout, layer))
+	continue;
+      //Do the digitalization
+      float calibr_coeff = 1.;
+      calibr_coeff       = m_calibrCoeffCal;
+      float hitEnergy    = calibr_coeff * energy;
+      int slice_id = ((0x7<<17&cellID)>>17);
+      int layer_id = ((0x7<<20&cellID)>>20);
 
-    debug() << "Contributions to this hit " << hit.contributions_size() << ",";
-    debug() << "Available? " << hit.isAvailable() << endmsg;
-    if (hit.isAvailable()) { 
-      for (auto step = hit.contributions_begin(); step != hit.contributions_end(); step++) {
-	edm4hep::CaloHitContribution contrib = *step;
-	if (contrib.isAvailable()) {
-	  debug() << contrib.getPDG() << " time:" << contrib.getTime() << " ns." << endmsg;
-	}
-	else {
-	  debug() << "Contrib not available" << endmsg;
+      // cut based on cell ID
+      // we're (currently) looking for layer 0, slice 1
+      // or layer 1, slice 4
+      bool first_pd = (slice_id == 4) && (layer_id == 1);
+      bool second_pd = (slice_id == 1) && (layer_id == 0);
+
+      if (first_pd || second_pd) {
+	if (hit.isAvailable()) {
+	  debug() << "Cell ID " << cellID << endmsg; 
+	  debug() << "Hit Slice ID " << slice_id << " ,Layer ID " << layer_id << endmsg;
+	  bool hasTime = false; 
+
+	  for (auto step = hit.contributions_begin(); 
+	       step != hit.contributions_end(); step++) {
+	    edm4hep::CaloHitContribution contrib = *step;
+	    if (contrib.isAvailable()) {
+	      hasTime = true;
+	      break; 
+	      debug() << contrib.getPDG() << " time:";
+	      debug() << contrib.getTime() << " ns." << endmsg;
+	    }
+	    else {
+	      debug() << "Contrib not available" << endmsg;
+	    }
+	  }
+
+	  if (hasTime) {
+	    // save this hit
+	    edm4hep::MutableCalorimeterHit calHit = calcol.create();
+	    calHit.setCellID(cellID);
+	    calHit.setEnergy(hitEnergy);
+	    calHit.setPosition(hit.getPosition());
+	    calHit.setType(CHT(CHT::muon, CHT::yoke, caloLayout, layer));
+	    auto muonRel = muonRelcol.create();
+	    muonRel.setFrom(calHit);
+	    muonRel.setTo(hit);
+	  }
 	}
       }
     }
-    
-    if (hitEnergy > m_maxHitEnergyCal) {
-      hitEnergy = m_maxHitEnergyCal;
-    }
-    if (hitEnergy > m_thresholdCal) {
-      edm4hep::MutableCalorimeterHit calHit = calcol.create();
-      calHit.setCellID(cellID);
-      calHit.setEnergy(hitEnergy);
-      calHit.setPosition(hit.getPosition());
-      calHit.setType(CHT(CHT::muon, CHT::yoke, caloLayout, layer));
-      auto muonRel = muonRelcol.create();
-      muonRel.setFrom(calHit);
-      muonRel.setTo(hit);
-    }
-  }
 
   return std::make_tuple(std::move(calcol), std::move(calRelcol));
 }

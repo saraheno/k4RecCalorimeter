@@ -12,6 +12,7 @@ find_package(DD4hep REQUIRED COMPONENTS DDRec DDCore DDAlign DDCond DDG4)
 gaudi_add_module(RecCalorimeterPlugins
   src/components/DualCrysCalDigi.cpp
   src/components/DualCrystalDigi.cpp
+  src/components/DualCrysSiPMAlgo.cpp
   src/components/CaloDIGI.cpp
   # Add other component files as needed
   LINK_LIBRARIES

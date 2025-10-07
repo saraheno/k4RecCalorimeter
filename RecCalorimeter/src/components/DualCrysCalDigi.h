@@ -57,7 +57,6 @@ struct DualCrysCalDigi final
       const edm4hep::SimCalorimeterHitCollection& simCaloHits,
       const edm4hep::EventHeaderCollection&       headers) const override;
 
-private:
 
 private:
   // declare useLayer here:
@@ -68,6 +67,8 @@ private:
   Gaudi::Property<std::string> outputRelCollection{this, "outputRelCollection", "outputRelCollection",
                                                   "The output collection of relations"};
   Gaudi::Property<std::string> outputCalCollection{this, "outputCalCollection", "outputCalCollection",
+                                                   "The output collection of calorimeters"};
+  Gaudi::Property<std::string> outputSPhotonsCollection{this, "outputSPhotonsCollection", "outputCalCollection",
                                                    "The output collection of calorimeters"};
 
   Gaudi::Property<std::string> m_encodingStringVariable{
