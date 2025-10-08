@@ -14,6 +14,48 @@ DualCrysSiPMAlgo::DualCrysSiPMAlgo(const std::string& name, ISvcLocator* svcloca
 
 
 
+/* Find the nearest wavelength from our fixed set of wavelengths
+ This works by rounding the wavelength off to the nearest integer
+ then finding the lowest value greater than given rounded wavelength
+ and then checking the nearest neighbors for the closest value and returning
+ the pair of nearest wavelength and PDE for a given SiPM type
+*/
+const std::pair<double,double> DualCrysSiPMAlgo::findnearest(SiPM_Type stype, double wavelength) const {
+  //info() << "FindNearest Wavelength:" << wavelength << endmsg; 
+  if (wavelength < 0.)
+    return std::make_pair(0.0,0.0); 
+
+  auto lb = UV_Wavelengths.lower_bound(round(wavelength)); 
+  if (stype == SiPM_Type::RGB) {
+    lb = RGB_Wavelengths.lower_bound(round(wavelength));
+  }
+
+
+  
+  int start = *lb;
+  int delta = abs(wavelength - *lb);
+  lb--;
+  int lowerdelta = abs(wavelength - *lb);
+  if (lowerdelta < delta) {
+    start = *lb;
+    delta = lowerdelta;
+  }
+  lb++;
+  lb++;
+  int upperdelta = abs(wavelength - *lb);
+  if (upperdelta < delta) {
+    start = *lb;
+  }
+
+  if (stype == SiPM_Type::RGB)
+    return RGB_Map.at(start);
+  else if (stype == SiPM_Type::UV)
+    return UV_Map.at(start); 
+  else
+    return std::make_pair(0.0,0.0); 
+
+}
+
 
 // pulled straight from Resolution.C, need to modify it to use the class parameters
 
@@ -57,12 +99,28 @@ StatusCode DualCrysSiPMAlgo::initialize()
   if (sc.isFailure())
     return sc;
 
+  // Initialize random services
+  m_randSvc = service("RndmGenSvc", false);
+
+  if (!m_randSvc) {
+    error() << "Couldn't get RndmGenSvc!" << endmsg;
+    return StatusCode::FAILURE;
+  }
+
+  if (m_rndmUniform.initialize(m_randSvc, Rndm::Flat(0., 1.)).isFailure()) {
+    error() << "Couldn't initialize RndmGenSvc!" << endmsg;
+    return StatusCode::FAILURE;
+  }
+
+  
   info() << "Dual Crystal SiPM Algorithm Initialized" << endmsg; 
 
   return StatusCode::SUCCESS;
 
 }
 
+
+// This builds and returns waveforms for a given set of hits 
 StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 {
   
@@ -86,13 +144,18 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     const int cellID = hit.getCellID();
     const int slice_id = ((0x7<<17&cellID)>>17);
     const int layer_id = ((0x7<<20&cellID)>>20);
-
-
+    // not using the slice or layer at the moment,
+    // but the upstream feeder should only give us particles from
+    // the SiPM tower slice
+    // 1.2398 / energy = wavelength hc/e ~ 1.239e-6 eV*m
+    // I think the value we get is in GeV, have to check the calculation
+    // but it looks ~ right in the results but needs verifying / rewriting
     if (hit.getType() == -22) {
       // scint
       scintPhotons.push_back(hit.getTime());
       float energy = hit.getEnergy()/CLHEP::eV;
-      scintPhotonWavelength.push_back(1239.84187 / energy);
+
+      scintPhotonWavelength.push_back(1239.84187 / (1000*energy));
       info() << "Scint @ " << hit.getTime() << " Wavelength:" << 1239.84187/(1000*energy);
       info() << " Energy: " << energy << " eV?"; 
       info() << endmsg; 
@@ -101,7 +164,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       // cerenkov
       cerenkPhotons.push_back(hit.getTime());
       float energy = hit.getEnergy()/CLHEP::eV;
-      cerenkPhotonWavelength.push_back(1239.84187 / energy);
+      cerenkPhotonWavelength.push_back(1239.84187 / (1000*energy));
       info() << "Cerenk @ " << hit.getTime() << " Wavelength:" << 1239.84187/(1000*energy);
       info() << " Energy: " << energy << " eV?"; 
       info() << endmsg; 
@@ -117,7 +180,18 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     xs[i] = dt*i;
   }
 
-  for (double phot : scintPhotons) {
+  // Use RGB SiPM for now 
+  for (size_t i = 0; i < scintPhotons.size(); i++) {
+    double phot = scintPhotons[i];
+    double wvl,response;
+    std::tie(wvl,response) = findnearest(SiPM_Type::RGB, scintPhotonWavelength[i]); 
+    double randval =  m_rndmUniform.shoot();
+    info() << "Rand value: " << randval << " WaveLen:" << wvl;
+    info() << " PDE:" << response << endmsg; 
+    if (randval > response ) {
+      info() << "Skipping this scint. photon, random val > resp" << endmsg;
+      continue;
+    }
     int idx = int(round(phot/dt));
     for (; idx < 1024; idx++) {
       double offset = xs[idx]-phot;
@@ -128,9 +202,19 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       scintSignal[idx] += SPR(offset); 
     }
   }
-  for (double phot : cerenkPhotons) {
+  for (size_t i = 0; i < cerenkPhotons.size(); i++) {
+    double phot = cerenkPhotons[i];
+    double wvl,response;
+    std::tie(wvl,response) = findnearest(SiPM_Type::RGB, cerenkPhotonWavelength[i]); 
+    double randval =  m_rndmUniform.shoot();
+    info() << "Rand value: " << randval << " WaveLen:" << wvl;
+    info() << " PDE:" << response << endmsg; 
+    if (randval > response ) {
+      info() << "Skipping this cerenk. photon, random val > resp" << endmsg;
+      continue;
+    }
     int idx = int(round(phot/dt));
-    for (idx; idx < 1024; idx++) {
+    for (; idx < 1024; idx++) {
       double offset = xs[idx]-phot;
       // in case our rounding puts us in a higher bin 
       if (offset < 0.0)
@@ -140,6 +224,9 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     }
   }
 
+  //Create and store the waveform created by Cerenkov photons, scintillation photons
+  // and their combination 
+  
   info() << "Filling scint waveform with " << scintPhotons.size() << " photons.";
   info() << endmsg; 
   auto scintwaveform = scintwaveforms->create();
