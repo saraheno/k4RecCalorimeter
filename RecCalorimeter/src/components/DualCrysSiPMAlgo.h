@@ -46,6 +46,16 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
 
 
 
+  struct photon {
+    double wavelength;
+    int ix;
+    int iy;
+    double time;
+    int photon_type; 
+  };
+
+
+  
   enum class SiPM_Type {
     UV,
     RGB
