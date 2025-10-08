@@ -138,12 +138,24 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   std::vector<double> scintPhotonWavelength;
   std::vector<double> cerenkPhotons;
   std::vector<double> cerenkPhotonWavelength;
+
+  std::vector<photon> totalPhotons; 
+  
   for (size_t i = 0; i < simHits->size(); i++) {
 
     const auto &hit = simHits->at(i); 
     const int cellID = hit.getCellID();
     const int slice_id = ((0x7<<17&cellID)>>17);
     const int layer_id = ((0x7<<20&cellID)>>20);
+    int ix = (0x7f<<3&cellID)>>3;
+    int iy = (0x7f<<10&cellID)>>10;
+    if (ix > 63)
+      ix -= 64;
+    if (iy > 63)
+      iy -= 64;
+    info() << "ix " << ix << ", iy " << iy;
+    info() << ", slice " << slice_id << ", layer" << layer_id;
+    info() << endmsg; 
     // not using the slice or layer at the moment,
     // but the upstream feeder should only give us particles from
     // the SiPM tower slice
@@ -154,20 +166,39 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       // scint
       scintPhotons.push_back(hit.getTime());
       float energy = hit.getEnergy()/CLHEP::eV;
-
-      scintPhotonWavelength.push_back(1239.84187 / (1000*energy));
-      info() << "Scint @ " << hit.getTime() << " Wavelength:" << 1239.84187/(1000*energy);
+      double wavelength = 1239.84187 / (1000*energy); 
+      scintPhotonWavelength.push_back(wavelength); 
+      info() << "Scint @ " << hit.getTime() << " Wavelength:" << wavelength;
       info() << " Energy: " << energy << " eV?"; 
-      info() << endmsg; 
+      info() << endmsg;
+      photon sphoton {
+	.wavelength = wavelength,
+	.ix = ix,
+	.iy = iy,
+	.time = hit.getTime(),
+	.photon_type = -22
+      };
+      totalPhotons.push_back(sphoton); 
+
     }
     else if ( hit.getType() == -44) {
       // cerenkov
       cerenkPhotons.push_back(hit.getTime());
       float energy = hit.getEnergy()/CLHEP::eV;
-      cerenkPhotonWavelength.push_back(1239.84187 / (1000*energy));
-      info() << "Cerenk @ " << hit.getTime() << " Wavelength:" << 1239.84187/(1000*energy);
+      double wavelength = 1239.84187 / (1000*energy); 
+      cerenkPhotonWavelength.push_back(wavelength); 
+      info() << "Cerenk @ " << hit.getTime() << " Wavelength:" << wavelength;
       info() << " Energy: " << energy << " eV?"; 
-      info() << endmsg; 
+      info() << endmsg;
+      photon cphoton {
+	.wavelength = wavelength,
+	.ix = ix,
+	.iy = iy,
+	.time = hit.getTime(),
+	.photon_type = -44
+      };
+      totalPhotons.push_back(cphoton); 
+      
     }
 
   }
@@ -180,6 +211,38 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     xs[i] = dt*i;
   }
 
+  std::map<std::pair<int,int>,std::vector<double>> totalWaveforms;
+  
+  for (auto &p : totalPhotons) {
+    double wvl,response;
+    std::tie(wvl,response) = findnearest(SiPM_Type::RGB, p.wavelength);
+    double randval =  m_rndmUniform.shoot();
+    if (randval > response ) {
+      info() << "Skipping this photon, random val > resp" << endmsg;
+      continue;
+    }
+    int idx = int(round(p.time/dt));
+    auto key = std::make_pair(p.ix, p.iy);
+    if (totalWaveforms.count(key)== 0) {
+      auto &vec = totalWaveforms[key];
+      vec.resize(1024);
+    }
+    
+    std::vector<double> &wave = totalWaveforms[key]; 
+    if (wave.size() != 1024) // first time we get here 
+      wave.resize(1024);
+    for (; idx < 1024; idx++) {
+      double offset = xs[idx]-p.time;
+      // in case our rounding puts us in a higher bin 
+      if (offset < 0.0)
+	offset = 0; 
+      wave[idx] += SPR(offset);
+    
+    }
+  }
+
+
+  
   // Use RGB SiPM for now 
   for (size_t i = 0; i < scintPhotons.size(); i++) {
     double phot = scintPhotons[i];
@@ -257,7 +320,21 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   for (size_t i = 0; i < 1024; i++) {
     waveform.addToAmplitude(cerenkovSignal[i]+scintSignal[i]);
   }
-    
+
+  // store the group of waveforms based on ix, iy positions
+  for (auto &[k,v] : totalWaveforms) {
+    int ix = k.first;
+    int iy = k.second;
+    auto wv = waveforms->create();
+    wv.setInterval(dt);
+    wv.setTime(0);
+    wv.setCellID((ix<<3)|(iy<<10));
+    for (size_t i = 0; i < 1024; i++) {
+      wv.addToAmplitude(v[i]);
+    }
+
+  }
+  
   info() << "Scintillation Photons:" << scintPhotons.size() << endmsg;
   info() << "Cerenkov Photons:" << cerenkPhotons.size() << endmsg;
   
