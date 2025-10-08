@@ -41,6 +41,9 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
   StatusCode execute(const EventContext&) const override;
   StatusCode finalize() override;
 
+  double SPR(double now) const; // FNAL Electronics result to single photoelectron 
+
+  
  private:
 
   // Template Properties
@@ -53,14 +56,33 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
       "Input containing the collection of photon hits"};
   Gaudi::Property<std::string> m_RelCollection{this, "RelationInputCollection", "RelationCalHit",
       "Input containing the relational hit collection"};
-
+  
+  Gaudi::Property<std::string> m_outTimeColl{this, "outputTimeStructCollection", "CalvisionSiPMDigiWaveform",
+                                             "calvision waveform collection name"};
+  Gaudi::Property<std::string> m_outScintTimeColl{this, "scintoutputTimeStructCollection", "CalvisionSiPMScintWaveform",
+                                             "calvision scint waveform collection name"};
+  Gaudi::Property<std::string> m_outCerenTimeColl{this, "cerenoutputTimeStructCollection", "CalvisionSiPMCerenWaveform",
+                                             "calvision ceren waveform collection name"};
+    
   // Input Collections
-  mutable k4FWCore::DataHandle<edm4hep::SimCalorimeterHitCollection> m_simHits{m_hitCollection,
+  mutable k4FWCore::DataHandle<edm4hep::CalorimeterHitCollection> m_simHits{m_hitCollection,
       Gaudi::DataHandle::Reader,
       this};
 
   mutable k4FWCore::DataHandle<edm4hep::CaloHitSimCaloHitLinkCollection> m_links{m_RelCollection,
       Gaudi::DataHandle::Reader,
+      this};
+
+  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_waveforms{m_outTimeColl,
+      Gaudi::DataHandle::Writer,
+      this};
+  
+  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_cerenwaveforms{m_outCerenTimeColl,
+      Gaudi::DataHandle::Writer,
+      this};
+
+  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_scintwaveforms{m_outScintTimeColl,
+      Gaudi::DataHandle::Writer,
       this};
   
 
