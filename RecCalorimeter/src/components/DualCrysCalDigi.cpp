@@ -111,8 +111,15 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
 	       step != hit.contributions_end(); step++) {
 	    edm4hep::CaloHitContribution contrib = *step;
 	    if (contrib.isAvailable()) {
-	      hasTime = true;
-	      break; 
+	      edm4hep::MutableCalorimeterHit calHit = calcol.create();
+	      calHit.setCellID(cellID);
+	      calHit.setEnergy(contrib.getEnergy());
+	      calHit.setTime(contrib.getTime());
+	      calHit.setPosition(hit.getPosition());
+	      calHit.setType(contrib.getPDG()); 
+	      auto muonRel = muonRelcol.create();
+	      muonRel.setFrom(calHit);
+	      muonRel.setTo(hit);
 	      debug() << contrib.getPDG() << " time:";
 	      debug() << contrib.getTime() << " ns." << endmsg;
 	    }
@@ -121,17 +128,6 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
 	    }
 	  }
 
-	  if (hasTime) {
-	    // save this hit
-	    edm4hep::MutableCalorimeterHit calHit = calcol.create();
-	    calHit.setCellID(cellID);
-	    calHit.setEnergy(hitEnergy);
-	    calHit.setPosition(hit.getPosition());
-	    calHit.setType(CHT(CHT::muon, CHT::yoke, caloLayout, layer));
-	    auto muonRel = muonRelcol.create();
-	    muonRel.setFrom(calHit);
-	    muonRel.setTo(hit);
-	  }
 	}
       }
     }
