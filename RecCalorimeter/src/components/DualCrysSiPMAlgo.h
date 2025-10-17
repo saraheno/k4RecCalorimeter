@@ -91,8 +91,6 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
 
   Gaudi::Property<std::string> m_hitCollection{this, "inputHitCollection", "CalorimeterHit",
       "Input containing the collection of photon hits"};
-  Gaudi::Property<std::string> m_RelCollection{this, "RelationInputCollection", "RelationCalHit",
-      "Input containing the relational hit collection"};
   
   Gaudi::Property<std::string> m_outTimeColl{this, "outputTimeStructCollection", "CalvisionSiPMDigiWaveform",
                                              "calvision waveform collection name"};
@@ -111,9 +109,9 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
       Gaudi::DataHandle::Reader,
       this};
 
-  mutable k4FWCore::DataHandle<edm4hep::CaloHitSimCaloHitLinkCollection> m_links{m_RelCollection,
+  /*mutable k4FWCore::DataHandle<edm4hep::CaloHitSimCaloHitLinkCollection> m_links{m_RelCollection,
       Gaudi::DataHandle::Reader,
-      this};
+      this};*/
 
   mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_waveforms{m_outTimeColl,
       Gaudi::DataHandle::Writer,

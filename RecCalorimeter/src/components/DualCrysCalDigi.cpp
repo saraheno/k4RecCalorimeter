@@ -36,8 +36,8 @@ DualCrysCalDigi::DualCrysCalDigi(const std::string& aName, ISvcLocator* aSvcLoc)
                            KeyValues("CALCollection", {"ECalEcalCollection"}),
                            KeyValues("HeaderName", {"EventHeader"}),
                        },
-                       {KeyValues("CALOutputCollections", {"CalorimeterHit"}),
-                        KeyValues("RelationOutputCollection", {"RelationCalHit"})}) {
+                       {KeyValues("CALOutputCollections", {"CalorimeterHit"})}
+		       ) {
   m_uidSvc = service<IUniqueIDGenSvc>("UniqueIDGenSvc", true);
   if (!m_uidSvc) {
     error() << "Unable to get UniqueIDGenSvc" << endmsg;
@@ -50,14 +50,13 @@ StatusCode DualCrysCalDigi::initialize() {
   return StatusCode::SUCCESS;
 }
 
-std::tuple<edm4hep::CalorimeterHitCollection, edm4hep::CaloHitSimCaloHitLinkCollection> 
+std::tuple<edm4hep::CalorimeterHitCollection> 
 DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloHits, const edm4hep::EventHeaderCollection& headers) const {
   debug() << " process event : " << headers[0].getEventNumber() << " - run  " << headers[0].getRunNumber()
           << endmsg;  // headers[0].getRunNumber(),headers[0].getEventNumber()
 
   auto calcol    = edm4hep::CalorimeterHitCollection();
-  auto calRelcol = edm4hep::CaloHitSimCaloHitLinkCollection();
-  edm4hep::CaloHitSimCaloHitLinkCollection muonRelcol;
+
 
   std::string initString;
 
@@ -117,9 +116,7 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
 	      calHit.setTime(contrib.getTime());
 	      calHit.setPosition(hit.getPosition());
 	      calHit.setType(contrib.getPDG()); 
-	      auto muonRel = muonRelcol.create();
-	      muonRel.setFrom(calHit);
-	      muonRel.setTo(hit);
+
 	      debug() << contrib.getPDG() << " time:";
 	      debug() << contrib.getTime() << " ns." << endmsg;
 	    }
@@ -132,7 +129,7 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
       }
     }
 
-  return std::make_tuple(std::move(calcol), std::move(calRelcol));
+  return std::make_tuple(std::move(calcol));
 }
 
 //StatusCode DualCrysCalDigi::finalize() { return StatusCode::SUCCESS; }
