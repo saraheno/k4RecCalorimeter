@@ -134,10 +134,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   
   info() << "Sim Hit Size:" << simHits->size() << " :: ";
   info() << "Link Size:" << linkCollection->size() << endmsg; 
-  std::vector<double> scintPhotons;
-  std::vector<double> scintPhotonWavelength;
-  std::vector<double> cerenkPhotons;
-  std::vector<double> cerenkPhotonWavelength;
+
 
   std::vector<photon> totalPhotons; 
   
@@ -164,10 +161,8 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     // but it looks ~ right in the results but needs verifying / rewriting
     if (hit.getType() == -22) {
       // scint
-      scintPhotons.push_back(hit.getTime());
       float energy = hit.getEnergy()/CLHEP::eV;
       double wavelength = 1239.84187 / (1000*energy); 
-      scintPhotonWavelength.push_back(wavelength); 
       info() << "Scint @ " << hit.getTime() << " Wavelength:" << wavelength;
       info() << " Energy: " << energy << " eV?"; 
       info() << endmsg;
@@ -183,10 +178,8 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     }
     else if ( hit.getType() == -44) {
       // cerenkov
-      cerenkPhotons.push_back(hit.getTime());
       float energy = hit.getEnergy()/CLHEP::eV;
       double wavelength = 1239.84187 / (1000*energy); 
-      cerenkPhotonWavelength.push_back(wavelength); 
       info() << "Cerenk @ " << hit.getTime() << " Wavelength:" << wavelength;
       info() << " Energy: " << energy << " eV?"; 
       info() << endmsg;
@@ -212,6 +205,8 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   }
 
   std::map<std::pair<int,int>,std::vector<double>> totalWaveforms;
+  std::map<std::pair<int,int>,std::vector<double>> CherenWaveforms;
+  std::map<std::pair<int,int>,std::vector<double>> ScintWaveforms;
   
   for (auto &p : totalPhotons) {
     double wvl,response;
@@ -228,7 +223,12 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       vec.resize(1024);
     }
     
-    std::vector<double> &wave = totalWaveforms[key]; 
+    std::vector<double> &wave = totalWaveforms[key];
+    std::vector<double> &pwave = p.photon_type == -22 ? ScintWaveforms[key]  :
+      CherenWaveforms[key]; 
+    if (pwave.size() != 1024)
+      pwave.resize(1024);
+    
     if (wave.size() != 1024) // first time we get here 
       wave.resize(1024);
     for (; idx < 1024; idx++) {
@@ -237,106 +237,60 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       if (offset < 0.0)
 	offset = 0; 
       wave[idx] += SPR(offset);
+      pwave[idx] += SPR(offset); 
     
     }
   }
 
 
-  
-  // Use RGB SiPM for now 
-  for (size_t i = 0; i < scintPhotons.size(); i++) {
-    double phot = scintPhotons[i];
-    double wvl,response;
-    std::tie(wvl,response) = findnearest(SiPM_Type::RGB, scintPhotonWavelength[i]); 
-    double randval =  m_rndmUniform.shoot();
-    info() << "Rand value: " << randval << " WaveLen:" << wvl;
-    info() << " PDE:" << response << endmsg; 
-    if (randval > response ) {
-      info() << "Skipping this scint. photon, random val > resp" << endmsg;
-      continue;
-    }
-    int idx = int(round(phot/dt));
-    for (; idx < 1024; idx++) {
-      double offset = xs[idx]-phot;
-      // in case our rounding puts us in a higher bin 
-      if (offset < 0.0)
-	offset = 0; 
-	
-      scintSignal[idx] += SPR(offset); 
-    }
-  }
-  for (size_t i = 0; i < cerenkPhotons.size(); i++) {
-    double phot = cerenkPhotons[i];
-    double wvl,response;
-    std::tie(wvl,response) = findnearest(SiPM_Type::RGB, cerenkPhotonWavelength[i]); 
-    double randval =  m_rndmUniform.shoot();
-    info() << "Rand value: " << randval << " WaveLen:" << wvl;
-    info() << " PDE:" << response << endmsg; 
-    if (randval > response ) {
-      info() << "Skipping this cerenk. photon, random val > resp" << endmsg;
-      continue;
-    }
-    int idx = int(round(phot/dt));
-    for (; idx < 1024; idx++) {
-      double offset = xs[idx]-phot;
-      // in case our rounding puts us in a higher bin 
-      if (offset < 0.0)
-	offset = 0; 
-	
-      cerenkovSignal[idx] += SPR(offset); 
-    }
-  }
-
   //Create and store the waveform created by Cerenkov photons, scintillation photons
   // and their combination 
   
-  info() << "Filling scint waveform with " << scintPhotons.size() << " photons.";
-  info() << endmsg; 
-  auto scintwaveform = scintwaveforms->create();
-  scintwaveform.setInterval(dt);
-  scintwaveform.setTime(0);
-  scintwaveform.setCellID(simHits->at(0).getCellID());
 
-  for (double sample : scintSignal) {
-    scintwaveform.addToAmplitude(sample);
-  }
 
-  info() << "Filling cerenkov waveform with " << cerenkPhotons.size() << " photons.";
-  info() << endmsg; 
+  auto fillWaveform = [&](edm4hep::MutableTimeSeries &ts,
+			  std::vector<double> &wv, int ix, int iy) {
+    ts.setInterval(dt);
+    ts.setTime(0);
+    ts.setCellID((ix<<3)|(iy<<10));
 
-  auto cerenkwaveform = cerenwaveforms->create();
-  cerenkwaveform.setInterval(dt);
-  cerenkwaveform.setTime(0);
-  cerenkwaveform.setCellID(simHits->at(0).getCellID());
+    for (size_t i = 0; i < 1024; i++) {
+      ts.addToAmplitude(wv[i]);
+    }
 
-  for (double sample : cerenkovSignal) {
-    cerenkwaveform.addToAmplitude(sample);
-  }
+  }; 
 
-  auto waveform = waveforms->create();
-  waveform.setInterval(dt);
-  waveform.setTime(0);
-  waveform.setCellID(simHits->at(0).getCellID());
-  for (size_t i = 0; i < 1024; i++) {
-    waveform.addToAmplitude(cerenkovSignal[i]+scintSignal[i]);
-  }
 
   // store the group of waveforms based on ix, iy positions
   for (auto &[k,v] : totalWaveforms) {
     int ix = k.first;
     int iy = k.second;
     auto wv = waveforms->create();
-    wv.setInterval(dt);
-    wv.setTime(0);
-    wv.setCellID((ix<<3)|(iy<<10));
-    for (size_t i = 0; i < 1024; i++) {
-      wv.addToAmplitude(v[i]);
-    }
+
+    fillWaveform(wv, v, ix, iy); 
 
   }
+
   
-  info() << "Scintillation Photons:" << scintPhotons.size() << endmsg;
-  info() << "Cerenkov Photons:" << cerenkPhotons.size() << endmsg;
+  for (auto &[k,v] : ScintWaveforms) {
+    int ix = k.first;
+    int iy = k.second;
+    auto wv = scintwaveforms->create();
+
+    fillWaveform(wv, v, ix, iy); 
+  }
+
+  
+  for (auto &[k,v] : CherenWaveforms) {
+
+    int ix = k.first;
+    int iy = k.second;
+    auto wv = cerenwaveforms->create();
+
+    fillWaveform(wv, v, ix, iy); 
+  }
+
+  
   
   return StatusCode::SUCCESS;
 
