@@ -125,7 +125,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 {
   
   const edm4hep::CalorimeterHitCollection* simHits = m_simHits.get();
-  const edm4hep::CaloHitSimCaloHitLinkCollection* linkCollection = m_links.get();
+  //const edm4hep::CaloHitSimCaloHitLinkCollection* linkCollection = m_links.get();
 
   // Output
   edm4hep::TimeSeriesCollection* waveforms = m_waveforms.createAndPut();
@@ -133,7 +133,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   edm4hep::TimeSeriesCollection* scintwaveforms = m_scintwaveforms.createAndPut();
   
   info() << "Sim Hit Size:" << simHits->size() << " :: ";
-  info() << "Link Size:" << linkCollection->size() << endmsg; 
+  //info() << "Link Size:" << linkCollection->size() << endmsg; 
 
 
   std::vector<photon> totalPhotons; 

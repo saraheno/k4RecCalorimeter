@@ -45,7 +45,7 @@
 // and somehow the baseclass template is not used
 struct DualCrysCalDigi final
     : k4FWCore::MultiTransformer<
-          std::tuple<edm4hep::CalorimeterHitCollection, edm4hep::CaloHitSimCaloHitLinkCollection>(
+          std::tuple<edm4hep::CalorimeterHitCollection>(
               const edm4hep::SimCalorimeterHitCollection&, const edm4hep::EventHeaderCollection&)> {
   
   DualCrysCalDigi(const std::string& name, ISvcLocator* svcLoc);
@@ -53,7 +53,7 @@ struct DualCrysCalDigi final
   StatusCode initialize() override;
   // StatusCode finalize() override;
 
-  std::tuple<edm4hep::CalorimeterHitCollection, edm4hep::CaloHitSimCaloHitLinkCollection> operator()(
+  std::tuple<edm4hep::CalorimeterHitCollection> operator()(
       const edm4hep::SimCalorimeterHitCollection& simCaloHits,
       const edm4hep::EventHeaderCollection&       headers) const override;
 
@@ -64,21 +64,16 @@ private:
 
   Gaudi::Property<std::string> m_calCollections{this, "calCollections", "DRCNoSegment",
                                                 "The input collection of calorimeters"};
-  Gaudi::Property<std::string> outputRelCollection{this, "outputRelCollection", "outputRelCollection",
-                                                  "The output collection of relations"};
   Gaudi::Property<std::string> outputCalCollection{this, "outputCalCollection", "outputCalCollection",
                                                    "The output collection of calorimeters"};
-  Gaudi::Property<std::string> outputSPhotonsCollection{this, "outputSPhotonsCollection", "outputCalCollection",
-                                                   "The output collection of calorimeters"};
+
 
   Gaudi::Property<std::string> m_encodingStringVariable{
       this, "EncodingStringParameterName", "GlobalTrackerReadoutID",
       "The name of the DD4hep constant that contains the encoding string for tracking detectors"};
 
-  Gaudi::Property<float> m_thresholdCal{this, "CalThreshold", 0.025, "Threshold for calorimeters"};
-  Gaudi::Property<float> m_calibrCoeffCal{this, "calibrationCoeffCal", 120000.0, "Calibration coefficient of calorimeters"};
-  Gaudi::Property<float> m_maxHitEnergyCal{this, "maxCalHitEnergy", 2.0, "Threshold for maximum calorimeter hit energy"};
 
+  Gaudi::Property<float> m_calibrCoeffCal{this, "calibrationCoeffCal", 120000.0, "Calibration coefficient of calorimeters"};
   Gaudi::Property<std::string> m_detectorNameEcal{this, "detectorNameEcal", "DRCrystal", "Name of ECAL"};
   Gaudi::Property<std::string> m_detectorNameHcal{this, "detectorNameHcal", "DRFtubeFiber", "Name of HCAL"};
   Gaudi::Property<std::vector<bool>> m_useLayersEcalVec{this, "useLayersEcal", {}, "Enable/disable ECAL layers"};
