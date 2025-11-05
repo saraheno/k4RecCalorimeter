@@ -13,6 +13,24 @@ DualCrysSiPMAlgo::DualCrysSiPMAlgo(const std::string& name, ISvcLocator* svcloca
 }
 
 
+struct key {
+  int ix;
+  int iy;
+  int layer;
+
+};
+
+bool operator<(const key &lhs, const key &rhs) {
+  int lvalue = (lhs.ix<<3|lhs.iy<<10|lhs.layer<<20); 
+  int rvalue = (rhs.ix<<3|rhs.iy<<10|rhs.layer<<20); 
+  if (lvalue < rvalue)
+    return true;
+  else
+    return false;
+
+}
+    
+
 
 /* Find the nearest wavelength from our fixed set of wavelengths
  This works by rounding the wavelength off to the nearest integer
@@ -21,8 +39,9 @@ DualCrysSiPMAlgo::DualCrysSiPMAlgo(const std::string& name, ISvcLocator* svcloca
  the pair of nearest wavelength and PDE for a given SiPM type
 */
 const std::pair<double,double> DualCrysSiPMAlgo::findnearest(SiPM_Type stype, double wavelength) const {
-  //info() << "FindNearest Wavelength:" << wavelength << endmsg; 
-  if (wavelength < 0.)
+  //info() << "FindNearest Wavelength:" << wavelength << endmsg;
+
+  if (wavelength < 0.) 
     return std::make_pair(0.0,0.0); 
 
   auto lb = UV_Wavelengths.lower_bound(round(wavelength)); 
@@ -170,6 +189,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 	.wavelength = wavelength,
 	.ix = ix,
 	.iy = iy,
+	.layer = layer_id,
 	.time = hit.getTime(),
 	.photon_type = -22
       };
@@ -187,6 +207,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 	.wavelength = wavelength,
 	.ix = ix,
 	.iy = iy,
+	.layer = layer_id,
 	.time = hit.getTime(),
 	.photon_type = -44
       };
@@ -204,9 +225,9 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     xs[i] = dt*i;
   }
 
-  std::map<std::pair<int,int>,std::vector<double>> totalWaveforms;
-  std::map<std::pair<int,int>,std::vector<double>> CherenWaveforms;
-  std::map<std::pair<int,int>,std::vector<double>> ScintWaveforms;
+  std::map<key,std::vector<double>> totalWaveforms;
+  std::map<key,std::vector<double>> CherenWaveforms;
+  std::map<key,std::vector<double>> ScintWaveforms;
   
   for (auto &p : totalPhotons) {
     double wvl,response;
@@ -217,15 +238,18 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       continue;
     }
     int idx = int(round(p.time/dt));
-    auto key = std::make_pair(p.ix, p.iy);
-    if (totalWaveforms.count(key)== 0) {
-      auto &vec = totalWaveforms[key];
+    key k{};
+    k.ix = p.ix;
+    k.iy = p.iy;
+    k.layer = p.layer; 
+    if (totalWaveforms.count(k)== 0) {
+      auto &vec = totalWaveforms[k];
       vec.resize(1024);
     }
     
-    std::vector<double> &wave = totalWaveforms[key];
-    std::vector<double> &pwave = p.photon_type == -22 ? ScintWaveforms[key]  :
-      CherenWaveforms[key]; 
+    std::vector<double> &wave = totalWaveforms[k];
+    std::vector<double> &pwave = p.photon_type == -22 ? ScintWaveforms[k]  :
+      CherenWaveforms[k]; 
     if (pwave.size() != 1024)
       pwave.resize(1024);
     
@@ -249,10 +273,10 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 
 
   auto fillWaveform = [&](edm4hep::MutableTimeSeries &ts,
-			  std::vector<double> &wv, int ix, int iy) {
+			  std::vector<double> &wv, int ix, int iy, int layer) {
     ts.setInterval(dt);
     ts.setTime(0);
-    ts.setCellID((ix<<3)|(iy<<10));
+    ts.setCellID((ix<<3)|(iy<<10)|(layer<<20));
 
     for (size_t i = 0; i < 1024; i++) {
       ts.addToAmplitude(wv[i]);
@@ -263,31 +287,35 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 
   // store the group of waveforms based on ix, iy positions
   for (auto &[k,v] : totalWaveforms) {
-    int ix = k.first;
-    int iy = k.second;
+    int ix = k.ix;
+    int iy = k.iy;
+    int layer = k.layer;
     auto wv = waveforms->create();
 
-    fillWaveform(wv, v, ix, iy); 
+    fillWaveform(wv, v, ix, iy, layer); 
 
   }
 
   
   for (auto &[k,v] : ScintWaveforms) {
-    int ix = k.first;
-    int iy = k.second;
+    int ix = k.ix;
+    int iy = k.iy;
+    int layer = k.layer; 
+    
     auto wv = scintwaveforms->create();
 
-    fillWaveform(wv, v, ix, iy); 
+    fillWaveform(wv, v, ix, iy,layer); 
   }
 
   
   for (auto &[k,v] : CherenWaveforms) {
 
-    int ix = k.first;
-    int iy = k.second;
+    int ix = k.ix;
+    int iy = k.iy;
+    int layer = k.layer; 
     auto wv = cerenwaveforms->create();
 
-    fillWaveform(wv, v, ix, iy); 
+    fillWaveform(wv, v, ix, iy,layer); 
   }
 
   
