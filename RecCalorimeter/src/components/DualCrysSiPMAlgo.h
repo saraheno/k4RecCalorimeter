@@ -50,6 +50,7 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
     double wavelength;
     int ix;
     int iy;
+    int layer; 
     double time;
     int photon_type; 
   };
