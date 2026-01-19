@@ -17,6 +17,7 @@
 #include "GaudiKernel/IRndmGenSvc.h"
 #include "GaudiKernel/RndmGenerators.h"
 #include "GaudiKernel/ToolHandle.h"
+#include <GaudiKernel/DataHandle.h>
 
 
 /** @class DualCrysSiPMAlgo
@@ -52,7 +53,8 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
     int iy;
     int layer; 
     double time;
-    int photon_type; 
+    int photon_type;
+    size_t hitidx; 
   };
 
 
@@ -109,6 +111,25 @@ const std::map<int, double > o58_filterMap = {{ 200, 0.0 },{ 210, 0.0 },{ 220, 0
   Gaudi::Property<bool> m_O58_Filter{this, "O58", false, "Use O58 Crystal Filter, default no"};
   Gaudi::Property<std::string> m_hitCollection{this, "inputHitCollection", "CalorimeterHit",
       "Input containing the collection of photon hits"};
+
+  Gaudi::Property<std::string> m_killedScintCollection{this,
+			       "killedScintPhotonCollection",
+			       "killedScintPhotons",
+			       "Output containing the collection of killed Scintillation photons"};
+  Gaudi::Property<std::string> m_killedCherenCollection{this, 
+				"killedCherenPhotonCollection", "killedCherenPhotons",
+				"Output containing the collection of killed Cherenkov photons"};
+
+  Gaudi::Property<std::string> m_passedScintCollection{this,
+			       "passedScintPhotonCollection", 
+			       "passedScintPhotons",
+			       "Output containing the collection of passed Scintillation photons"};
+
+  Gaudi::Property<std::string> m_passedCherenCollection{this, 
+			       "killedCherenPhotonCollection",
+			       "passedCherenPhotons",
+			       "Output containing the collection of passed Cherenkov photons"};
+
   
   Gaudi::Property<std::string> m_outTimeColl{this, "outputTimeStructCollection", "CalvisionSiPMDigiWaveform",
                                              "calvision waveform collection name"};
@@ -143,6 +164,18 @@ const std::map<int, double > o58_filterMap = {{ 200, 0.0 },{ 210, 0.0 },{ 220, 0
       Gaudi::DataHandle::Writer,
       this};
   
+  mutable k4FWCore::DataHandle<edm4hep::CalorimeterHitCollection> m_killedScintPhotons{m_killedScintCollection,
+										       Gaudi::DataHandle::Writer,
+										       this};
+  mutable k4FWCore::DataHandle<edm4hep::CalorimeterHitCollection> m_killedCherenPhotons{m_killedCherenCollection,
+											Gaudi::DataHandle::Writer,
+											this}; 
+  mutable k4FWCore::DataHandle<edm4hep::CalorimeterHitCollection> m_passedScintPhotons{m_passedScintCollection,
+										       Gaudi::DataHandle::Writer,
+										       this};
+  mutable k4FWCore::DataHandle<edm4hep::CalorimeterHitCollection> m_passedCherenPhotons{m_passedCherenCollection,
+											Gaudi::DataHandle::Writer,
+											this}; 
 
 
 };
