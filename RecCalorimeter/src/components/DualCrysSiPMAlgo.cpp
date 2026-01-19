@@ -38,6 +38,43 @@ bool operator<(const key &lhs, const key &rhs) {
  and then checking the nearest neighbors for the closest value and returning
  the pair of nearest wavelength and PDE for a given SiPM type
 */
+
+const std::pair<double,double> DualCrysSiPMAlgo::findnearest(Filter_Type ftype, double wavelength) const {
+  if (wavelength < 0.) 
+    return std::make_pair(0.0,0.0); 
+
+  auto lb = u330_filter_wavelengths.lower_bound(round(wavelength)); 
+  if (ftype == Filter_Type::O58) {
+    lb = o58_filter_wavelengths.lower_bound(round(wavelength));
+  }
+
+
+  
+  int start = *lb;
+  int delta = abs(wavelength - *lb);
+  lb--;
+  int lowerdelta = abs(wavelength - *lb);
+  if (lowerdelta < delta) {
+    start = *lb;
+    delta = lowerdelta;
+  }
+  lb++;
+  lb++;
+  int upperdelta = abs(wavelength - *lb);
+  if (upperdelta < delta) {
+    start = *lb;
+  }
+
+  if (ftype == Filter_Type::U330)
+    return std::make_pair(start, u330_filterMap.at(start));
+  else if (ftype == Filter_Type::O58)
+    return std::make_pair(start, o58_filterMap.at(start));
+  else
+    return std::make_pair(0.0,0.0); 
+
+
+}
+
 const std::pair<double,double> DualCrysSiPMAlgo::findnearest(SiPM_Type stype, double wavelength) const {
   //info() << "FindNearest Wavelength:" << wavelength << endmsg;
 
@@ -153,7 +190,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   
   info() << "Sim Hit Size:" << simHits->size() << " :: ";
   //info() << "Link Size:" << linkCollection->size() << endmsg; 
-
+  
 
   std::vector<photon> totalPhotons; 
   
@@ -228,15 +265,66 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   std::map<key,std::vector<double>> totalWaveforms;
   std::map<key,std::vector<double>> CherenWaveforms;
   std::map<key,std::vector<double>> ScintWaveforms;
+  Filter_Type ftype = Filter_Type::NONE;
+  if (m_U330_Filter.value() && m_O58_Filter.value()) {
+    info() << "Error! Both filters set active! Using none" << endmsg;
+    ftype = Filter_Type::NONE; 
+  }
+  else { 
+    if (m_U330_Filter.value()) { 
+      ftype = Filter_Type::U330;
+    }
+    if (m_O58_Filter.value()) {
+      ftype = Filter_Type::O58;
+    }
+  }
   
+
+  switch (ftype) {
+  case (Filter_Type::NONE): {
+    info() << "Using no filter on crystal" << endmsg;
+    break;
+  }
+  case (Filter_Type::O58): {
+    info() << "Using O58 filter" << endmsg;
+    break;
+  }
+  case (Filter_Type::U330): {
+    info() << "Using U330 Filter on crystal" << endmsg;
+    break;
+  }
+  }
+    
   for (auto &p : totalPhotons) {
-    double wvl,response;
-    std::tie(wvl,response) = findnearest(SiPM_Type::RGB, p.wavelength);
-    double randval =  m_rndmUniform.shoot();
-    if (randval > response ) {
-      info() << "Skipping this photon, random val > resp" << endmsg;
+
+    if ((p.wavelength <= 300.0) || (p.wavelength >= 1000.0)) {
+      info() << "Skipping photons <= 300 nm or >= 1000 nm" << endmsg;
       continue;
     }
+    
+    double wvl,response;
+    double filterwvl, filterresponse;
+    if (ftype != Filter_Type::NONE)
+      std::tie(filterwvl, filterresponse) = findnearest(ftype, p.wavelength); 
+    std::tie(wvl,response) = findnearest(SiPM_Type::RGB, p.wavelength);
+    // filter cut
+    double  randval =  m_rndmUniform.shoot()*100;
+    if (ftype != Filter_Type::NONE) { 
+      if (randval > filterresponse ) {
+	info() << "Skipping " << p.wavelength << " nm photon.";
+	info() << " filter resp: " << filterresponse << " randval " << randval << endmsg; 
+	//info() << "Skipping this photon, random val > filter resp" << endmsg;
+	continue;
+      }
+    }
+    randval =  m_rndmUniform.shoot();
+    if (randval > response ) {
+      info() << "Skipping " << p.wavelength << " nm photon.";
+      info() << " sipm resp: " << response << " randval: " << randval << endmsg; 
+	//info() << "Skipping this photon, random val > sipm response" << endmsg;
+      continue;
+    }
+
     int idx = int(round(p.time/dt));
     key k{};
     k.ix = p.ix;
