@@ -1,5 +1,9 @@
 #include "DualCrysSiPMAlgo.h"
 #include <CLHEP/Units/SystemOfUnits.h>
+#include <algorithm>
+#include <edm4hep/CalorimeterHit.h>
+#include <edm4hep/CalorimeterHitCollection.h>
+#include <edm4hep/MutableCalorimeterHit.h>
 
 DECLARE_COMPONENT(DualCrysSiPMAlgo)
 
@@ -187,6 +191,14 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   edm4hep::TimeSeriesCollection* waveforms = m_waveforms.createAndPut();
   edm4hep::TimeSeriesCollection* cerenwaveforms = m_cerenwaveforms.createAndPut();
   edm4hep::TimeSeriesCollection* scintwaveforms = m_scintwaveforms.createAndPut();
+
+  edm4hep::CalorimeterHitCollection* killedCherenkovPhts = m_killedCherenPhotons.createAndPut();
+  edm4hep::CalorimeterHitCollection* killedScintPhts = m_killedScintPhotons.createAndPut();
+
+  edm4hep::CalorimeterHitCollection* passedScintPhts = m_passedScintPhotons.createAndPut();
+
+  edm4hep::CalorimeterHitCollection* passedCherenkovPhts = 
+    m_passedCherenPhotons.createAndPut(); 
   
   info() << "Sim Hit Size:" << simHits->size() << " :: ";
   //info() << "Link Size:" << linkCollection->size() << endmsg; 
@@ -228,7 +240,8 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 	.iy = iy,
 	.layer = layer_id,
 	.time = hit.getTime(),
-	.photon_type = -22
+	.photon_type = -22,
+	.hitidx = i
       };
       totalPhotons.push_back(sphoton); 
 
@@ -246,7 +259,8 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 	.iy = iy,
 	.layer = layer_id,
 	.time = hit.getTime(),
-	.photon_type = -44
+	.photon_type = -44,
+	.hitidx = i
       };
       totalPhotons.push_back(cphoton); 
       
@@ -294,11 +308,43 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     break;
   }
   }
+
+
+  auto storeKilledHit = [&](photon &p) {
+    auto hit = simHits->at(p.hitidx);
+    edm4hep::MutableCalorimeterHit calHit;
+    calHit = hit.clone();
+
+      if (p.photon_type == -44) {
+	// Cherenkov Photon
+	killedCherenkovPhts->push_back(calHit); 
+      }
+      else if (p.photon_type == -22) {
+	// Scintillation Photon
+	killedScintPhts->push_back(calHit); 
+      }
+  };
+
+  auto storePassedHit = [&](photon &p) {
+    auto hit = simHits->at(p.hitidx);
+    edm4hep::MutableCalorimeterHit calHit;
+    calHit = hit.clone();
+    if (p.photon_type == -44) {
+      // Cherenkov Photon
+      passedCherenkovPhts->push_back(calHit); 
+    }
+    else if (p.photon_type == -22) {
+      // Scintillation Photon
+	passedScintPhts->push_back(calHit); 
+    }
     
+  };
+  
   for (auto &p : totalPhotons) {
 
     if ((p.wavelength <= 300.0) || (p.wavelength >= 1000.0)) {
       info() << "Skipping photons <= 300 nm or >= 1000 nm" << endmsg;
+      storeKilledHit(p); 
       continue;
     }
     
@@ -311,6 +357,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     double  randval =  m_rndmUniform.shoot()*100;
     if (ftype != Filter_Type::NONE) { 
       if (randval > filterresponse ) {
+	storeKilledHit(p); 
 	info() << "Skipping " << p.wavelength << " nm photon.";
 	info() << " filter resp: " << filterresponse << " randval " << randval << endmsg; 
 	//info() << "Skipping this photon, random val > filter resp" << endmsg;
@@ -319,12 +366,15 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     }
     randval =  m_rndmUniform.shoot();
     if (randval > response ) {
+      storeKilledHit(p); 
       info() << "Skipping " << p.wavelength << " nm photon.";
       info() << " sipm resp: " << response << " randval: " << randval << endmsg; 
 	//info() << "Skipping this photon, random val > sipm response" << endmsg;
       continue;
     }
 
+    storePassedHit(p); 
+    
     int idx = int(round(p.time/dt));
     key k{};
     k.ix = p.ix;
