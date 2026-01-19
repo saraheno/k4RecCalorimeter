@@ -1,0 +1,3 @@
+[submodule "RecCalorimeter/tests/third-party/doctest"]
+	path = RecCalorimeter/tests/third-party/doctest
+	url = https://github.com/doctest/doctest
