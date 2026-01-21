@@ -135,8 +135,8 @@ const std::map<int, double > o58_filterMap = {{ 200, 0.0 },{ 210, 0.0 },{ 220, 0
                                              "calvision waveform collection name"};
   Gaudi::Property<std::string> m_outScintTimeColl{this, "scintoutputTimeStructCollection", "CalvisionSiPMScintWaveform",
                                              "calvision scint waveform collection name"};
-  Gaudi::Property<std::string> m_outCerenTimeColl{this, "cerenoutputTimeStructCollection", "CalvisionSiPMCerenWaveform",
-                                             "calvision ceren waveform collection name"};
+  Gaudi::Property<std::string> m_outCherenTimeColl{this, "cherenoutputTimeStructCollection", "CalvisionSiPMCherenWaveform",
+                                             "calvision cheren waveform collection name"};
 
 
   // Random Number Service
@@ -156,7 +156,7 @@ const std::map<int, double > o58_filterMap = {{ 200, 0.0 },{ 210, 0.0 },{ 220, 0
       Gaudi::DataHandle::Writer,
       this};
   
-  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_cerenwaveforms{m_outCerenTimeColl,
+  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_cherenwaveforms{m_outCherenTimeColl,
       Gaudi::DataHandle::Writer,
       this};
 

@@ -189,7 +189,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 
   // Output
   edm4hep::TimeSeriesCollection* waveforms = m_waveforms.createAndPut();
-  edm4hep::TimeSeriesCollection* cerenwaveforms = m_cerenwaveforms.createAndPut();
+  edm4hep::TimeSeriesCollection* cherenwaveforms = m_cherenwaveforms.createAndPut();
   edm4hep::TimeSeriesCollection* scintwaveforms = m_scintwaveforms.createAndPut();
 
   edm4hep::CalorimeterHitCollection* killedCherenkovPhts = m_killedCherenPhotons.createAndPut();
@@ -247,10 +247,10 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 
     }
     else if ( hit.getType() == -44) {
-      // cerenkov
+      // cherenkov
       float energy = hit.getEnergy()/CLHEP::eV;
       double wavelength = 1239.84187 / (1000*energy); 
-      info() << "Cerenk @ " << hit.getTime() << " Wavelength:" << wavelength;
+      info() << "Cherenk @ " << hit.getTime() << " Wavelength:" << wavelength;
       info() << " Energy: " << energy << " eV?"; 
       info() << endmsg;
       photon cphoton {
@@ -270,7 +270,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 
   std::vector<double> xs(1024);
   std::vector<double> scintSignal(1024);
-  std::vector<double> cerenkovSignal(1024);
+  std::vector<double> cherenkovSignal(1024);
   double dt = 0.2; // sampling time in ns 
   for (size_t i= 0; i< 1024; i++) {
     xs[i] = dt*i;
@@ -405,7 +405,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   }
 
 
-  //Create and store the waveform created by Cerenkov photons, scintillation photons
+  //Create and store the waveform created by Cherenkov photons, scintillation photons
   // and their combination 
   
 
@@ -451,7 +451,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     int ix = k.ix;
     int iy = k.iy;
     int layer = k.layer; 
-    auto wv = cerenwaveforms->create();
+    auto wv = cherenwaveforms->create();
 
     fillWaveform(wv, v, ix, iy,layer); 
   }
