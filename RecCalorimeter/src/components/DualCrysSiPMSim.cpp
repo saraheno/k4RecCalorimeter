@@ -56,12 +56,41 @@ StatusCode DualCrysSiPMSim::initialize()
     return StatusCode::FAILURE;
   }
 
+  if (m_wavelen.size() < 2) {
+    error() << "DualCrysSiPMSim: "
+            << "The wavelength vector size must be greater or equal than 2" << endmsg;
+    return StatusCode::FAILURE;
+  }
+
+  if (m_wavelen.size() != m_sipmEff.size()) {
+    error() << "DualCrysSiPMSim: "
+            << "The SiPM efficiency vector size should be equal to the wavelength vector size" << endmsg;
+    return StatusCode::FAILURE;
+  }
+
 
   // setup sipm properties
+
   sipmProp.setSignalLength(204.8);
   sipmProp.setSampling(0.2);
+  sipmProp.setSignalLength(m_sigLength);
+  sipmProp.setSize(m_sipmSize);
+  sipmProp.setDcr(m_Dcr);
+  sipmProp.setXt(m_Xt);
+  sipmProp.setSampling(m_sampling);
+  sipmProp.setRecoveryTime(m_recovery);
+  sipmProp.setPitch(m_cellPitch);
+  sipmProp.setAp(m_afterpulse);
+  sipmProp.setFallTimeFast(m_falltimeFast);
+  sipmProp.setRiseTime(m_risetime);
+  sipmProp.setSnr(m_snr);
+  // Set the PDE type to spectrum PDE
+  sipmProp.setPdeType(sipm::SiPMProperties::PdeType::kSpectrumPde);
+  // Set the PDE spectrum
+  sipmProp.setPdeSpectrum(m_wavelen.value(), m_sipmEff.value());
 
-  //sipmSensor = std::make_unique<sipm::SiPMSensor>(sipmProp); 
+  std::cout << sipmProp << std::endl; 
+
 
 
    
@@ -235,8 +264,8 @@ StatusCode DualCrysSiPMSim::execute(const EventContext&) const
     auto &sensor = totalWaveforms[k];
     auto &tsensor = p.photon_type == -22 ? ScintWaveforms[k] : CherenWaveforms[k];
 
-    sensor.addPhoton(p.time);
-    tsensor.addPhoton(p.time); 
+    sensor.addPhoton(p.time,p.wavelength);
+    tsensor.addPhoton(p.time,p.wavelength); 
     if ((idx %10) == 0) {
       info() << "Processing photon " << idx << endmsg;
     }
@@ -252,6 +281,7 @@ StatusCode DualCrysSiPMSim::execute(const EventContext&) const
       waveform.setTime(0);
       uint64_t cID = (k.ix << 3)|(k.iy << 10)|(k.layer<<20); 
       waveform.setCellID(cID);
+      //std::cout << sensor << std::endl; 
       sensor.runEvent();
       sipm::SiPMAnalogSignal signal = sensor.signal();
     

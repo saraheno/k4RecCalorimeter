@@ -17,6 +17,7 @@
 #include "GaudiKernel/IRndmGenSvc.h"
 #include "GaudiKernel/RndmGenerators.h"
 #include "GaudiKernel/ToolHandle.h"
+#include <Gaudi/Property.h>
 #include <GaudiKernel/DataHandle.h>
 
 
@@ -83,7 +84,44 @@ const std::map<int, double > o58_filterMap = {{ 200, 0.0 },{ 210, 0.0 },{ 220, 0
 
   // Template Properties
   sipm::SiPMProperties sipmProp;
-  //std::unique_ptr<sipm::SiPMSensor> sipmSensor; 
+  //std::unique_ptr<sipm::SiPMSensor> sipmSensor;
+
+  // Properties pulled from SimulatedSiPMwithOpticalPhoton.hamamatsu 
+  // SiPM properties (defaults set based on Hamamatsu S14160-1310PS)
+  // Signal properties
+  Gaudi::Property<double> m_sigLength{this, "signalLength", 200., "Signal length in ns"};
+  Gaudi::Property<double> m_sampling{this, "sampling", 0.1, "SiPM sampling rate in ns"};
+  Gaudi::Property<double> m_risetime{this, "risetime", 1., "Signal rise time in ns"};
+  Gaudi::Property<double> m_falltimeFast{this, "falltimeFast", 6.5, "Signal fast component decay time in ns"};
+
+
+  // SiPM physical properties
+  Gaudi::Property<double> m_sipmSize{this, "SiPMsize", 1.3, "Width of photosensitive area in mm"};
+  Gaudi::Property<double> m_cellPitch{this, "cellpitch", 10., "SiPM cell size in um"};
+  Gaudi::Property<double> m_recovery{this, "recovery", 10., "SiPM cell recovery time in ns"};
+
+  // Noise parameters
+  Gaudi::Property<double> m_Dcr{this, "DCR", 120e3, "SiPM dark count rate in Hz"};
+  Gaudi::Property<double> m_Xt{this, "Xtalk", 0.01, "SiPM optical crosstalk probability"};
+  Gaudi::Property<double> m_afterpulse{this, "afterpulse", 0.03, "Afterpulse probability"};
+  Gaudi::Property<double> m_snr{this, "SNR", 20., "Signal-to-noise ratio in dB"};
+
+  // Integration parameters
+  Gaudi::Property<double> m_gateStart{this, "gateStart", 5., "Integration gate starting time in ns"};
+  Gaudi::Property<double> m_gateL{this, "gateLength", 95., "Integration gate length in ns"};
+  Gaudi::Property<double> m_thres{this, "threshold", 1.5, "Integration threshold in photoelectrons"};
+
+  // other parameters (attention, will override above parameters if set)
+  Gaudi::Property<std::map<std::string,double>> m_params{this, "params", {}, "optional parameters"};
+
+  // SiPM efficiency
+  Gaudi::Property<std::vector<double>> m_wavelen{
+      this, "wavelength", {1000., 100.}, "wavelength vector in nm (decreasing order)"};
+  Gaudi::Property<std::vector<double>> m_sipmEff{this, "sipmEfficiency", {0.1, 0.1}, "SiPM efficiency vs wavelength"};
+
+
+
+  
   Gaudi::Property<std::string> m_hitCollection{this, "inputHitCollection", "CalorimeterHit",
       "Input containing the collection of photon hits"};
   Gaudi::Property<std::string> m_outTimeColl{this, "outputTimeStructCollection", "CalvisionSiPMDigiWaveform",
