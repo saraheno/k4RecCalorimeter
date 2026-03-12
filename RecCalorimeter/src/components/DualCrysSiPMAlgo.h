@@ -126,7 +126,7 @@ const std::map<int, double > o58_filterMap = {{ 200, 0.0 },{ 210, 0.0 },{ 220, 0
 			       "Output containing the collection of passed Scintillation photons"};
 
   Gaudi::Property<std::string> m_passedCherenCollection{this, 
-			       "killedCherenPhotonCollection",
+			       "passedCherenPhotonCollection",
 			       "passedCherenPhotons",
 			       "Output containing the collection of passed Cherenkov photons"};
 
