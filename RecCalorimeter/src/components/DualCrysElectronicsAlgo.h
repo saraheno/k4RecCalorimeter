@@ -1,0 +1,105 @@
+#pragma once
+
+
+#include <ngspice/sharedspice.h>
+
+
+
+// EDM4HEP includes
+
+#include "edm4hep/CalorimeterHitCollection.h"
+#include "edm4hep/CaloHitSimCaloHitLinkCollection.h"
+#include "edm4hep/RawTimeSeriesCollection.h"
+#include "edm4hep/SimCalorimeterHitCollection.h"
+#include "edm4hep/TimeSeriesCollection.h"
+
+// k4FWCore includes
+#include "k4FWCore/DataHandle.h"
+
+// Gaudi includes
+#include "Gaudi/Algorithm.h"
+#include "GaudiKernel/IRndmGenSvc.h"
+#include "GaudiKernel/RndmGenerators.h"
+#include "GaudiKernel/ToolHandle.h"
+#include <Gaudi/Property.h>
+#include <GaudiKernel/DataHandle.h>
+
+#include <memory>
+
+/** @class DualCrysSiPMAlgo
+
+    Algorithm for adding electronics modeling to SiPM waveforms using ngspice
+
+    @author Thomas Anderson
+    @date 2026-03-12
+
+
+*/
+
+
+class DualCrysElectronicsAlgo : public Gaudi::Algorithm {
+ public:
+
+  DualCrysElectronicsAlgo(const std::string &name, ISvcLocator* svcLoc);
+  virtual ~DualCrysElectronicsAlgo() {};
+
+  StatusCode initialize() override;
+  StatusCode execute(const EventContext&) const override;
+  StatusCode finalize() override;
+
+
+
+  // spice callbacks, I may move this to a separate struct in the future
+
+  static int send_char(char* str, int len, void* user);
+  static int send_stat(char* str, int len, void* user);
+  static int controlled_exit(int exit_status, NG_BOOL immediate_exit, NG_BOOL on_quit, int ident, void* user);
+  static int send_data(pvecvaluesall data, int num_vectors, int ident, void* user);
+  static int send_init_data(pvecinfoall init_data, int ident, void* user);
+  static int bg_thread_running(NG_BOOL running, int ident, void* user);
+  // Helper function to cast userData to your class type
+  static DualCrysElectronicsAlgo* get_callback_data(void* user) {
+        return static_cast<DualCrysElectronicsAlgo*>(user);
+    }
+
+  
+ private:
+  Gaudi::Property<std::string> m_outScintElecColl{this, "scintoutputElecTimeStructCollection", 
+      "CalvisionSiPMScintElecWaveform",
+      "calvision scint electronics waveform collection name"};
+
+  Gaudi::Property<std::string> m_outCherenElecColl{this, "cherenoutputTimeElecStructCollection", 
+      "CalvisionSiPMCherenElecWaveform",
+      "calvision ceren electronics waveform collection name"};
+
+  Gaudi::Property<std::string> m_inScintTimeColl{this, "scintInputTimeStructCollection", "CalvisionSiPMScintWaveform",
+                                             "calvision scint waveform collection name"};
+  Gaudi::Property<std::string> m_inCherenTimeColl{this, "cherenInputTimeStructCollection",
+      "CalvisionSiPMCherenWaveform",
+      "calvision ceren waveform collection name"};
+
+
+  // Random Number Service
+  SmartIF<IRndmGenSvc> m_randSvc;
+  Rndm::Numbers m_rndmUniform;
+
+  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_in_cherenwaveforms{m_inCherenTimeColl,
+      Gaudi::DataHandle::Reader,
+      this};
+
+  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_in_scintwaveforms{m_inScintTimeColl,
+      Gaudi::DataHandle::Reader,
+      this};
+
+  // out
+
+  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_cherenwaveforms{m_outCherenElecColl,
+      Gaudi::DataHandle::Writer,
+      this};
+
+  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_scintwaveforms{m_outScintElecColl,
+      Gaudi::DataHandle::Writer,
+      this};
+  
+
+}; 

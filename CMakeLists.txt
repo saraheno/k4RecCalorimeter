@@ -17,7 +17,7 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 #---------------------------------------------------------------
 find_package(ROOT COMPONENTS RIO Tree REQUIRED)
