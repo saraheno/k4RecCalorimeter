@@ -102,8 +102,8 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
 
       if (first_pd || second_pd) {
 	if (hit.isAvailable()) {
-	  debug() << "Cell ID " << cellID << endmsg; 
-	  debug() << "Hit Slice ID " << slice_id << " ,Layer ID " << layer_id << endmsg;
+	  //debug() << "Cell ID " << cellID << endmsg; 
+	  //debug() << "Hit Slice ID " << slice_id << " ,Layer ID " << layer_id << endmsg;
 	  bool hasTime = false; 
 
 	  for (auto step = hit.contributions_begin(); 
@@ -117,8 +117,8 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
 	      calHit.setPosition(hit.getPosition());
 	      calHit.setType(contrib.getPDG()); 
 
-	      debug() << contrib.getPDG() << " time:";
-	      debug() << contrib.getTime() << " ns." << endmsg;
+	      //  debug() << contrib.getPDG() << " time:";
+	      //debug() << contrib.getTime() << " ns." << endmsg;
 	    }
 	    else {
 	      debug() << "Contrib not available" << endmsg;

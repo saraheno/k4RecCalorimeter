@@ -5,6 +5,7 @@
 #include <edm4hep/CalorimeterHit.h>
 #include <edm4hep/CalorimeterHitCollection.h>
 #include <edm4hep/MutableCalorimeterHit.h>
+#include <edm4hep/TimeSeriesCollection.h>
 #include <memory>
 
 DECLARE_COMPONENT(DualCrysElectronicsAlgo)
@@ -104,7 +105,7 @@ StatusCode DualCrysElectronicsAlgo::initialize()
   }
 
   
-  info() << "Dual Crystal SiPM Electronics Algorithm Initialized" << endmsg;
+
 
   // try to init ngspice
   int r = ngSpice_Init(send_char,
@@ -114,9 +115,12 @@ StatusCode DualCrysElectronicsAlgo::initialize()
 		       send_init_data,
 		       bg_thread_running,
 		       this); 
-  if (r != 0)
-    return StatusCode::FAILURE; 
 
+  if (r != 0) {
+    error() << "Failed to init ngspice!" << std::endl; 
+    return StatusCode::FAILURE;
+  }
+  info() << "Dual Crystal SiPM Electronics Algorithm Initialized" << endmsg;
 
   return StatusCode::SUCCESS;
 
@@ -127,10 +131,25 @@ StatusCode DualCrysElectronicsAlgo::initialize()
 StatusCode DualCrysElectronicsAlgo::execute(const EventContext&) const
 {
 
-
+  info() << "Starting Electron Sim" << std::endl; 
   edm4hep::TimeSeriesCollection* cherenkovWaveforms = m_cherenwaveforms.createAndPut();
   edm4hep::TimeSeriesCollection* scintillationWaveforms = m_scintwaveforms.createAndPut();
 
+  //  Input 
+  const edm4hep::TimeSeriesCollection *cherenkovTS = m_in_cherenwaveforms.get();
+  const edm4hep::TimeSeriesCollection *scintillationTS = m_in_scintwaveforms.get();
+  
+  debug() << "Cherenkov Size:" << cherenkovTS->size() << std::endl;
+  debug() << "Scintillation Size:" << scintillationTS->size() << std::endl;
+
+
+  for (size_t i = 0; i < cherenkovTS->size(); i++)  {
+
+    const auto &ts = cherenkovTS->at(i);
+    debug() << "TS cell id:" << ts.getCellID() << std::endl; 
+
+  }
+  
   return StatusCode::SUCCESS;
 
   

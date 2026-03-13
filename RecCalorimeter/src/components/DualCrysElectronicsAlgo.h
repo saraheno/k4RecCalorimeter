@@ -72,12 +72,41 @@ class DualCrysElectronicsAlgo : public Gaudi::Algorithm {
       "CalvisionSiPMCherenElecWaveform",
       "calvision ceren electronics waveform collection name"};
 
-  Gaudi::Property<std::string> m_inScintTimeColl{this, "scintInputTimeStructCollection", "CalvisionSiPMScintWaveform",
-                                             "calvision scint waveform collection name"};
-  Gaudi::Property<std::string> m_inCherenTimeColl{this, "cherenInputTimeStructCollection",
-      "CalvisionSiPMCherenWaveform",
-      "calvision ceren waveform collection name"};
+    Gaudi::Property<std::string> m_inScintTimeColl{this, "ScintSiPMInputWaveforms", 
+						 "ScintWaveforms",
+						 "calvision scint waveform collection name"};
+  Gaudi::Property<std::string> m_inCherenTimeColl{this, 
+						  "CherenkovSiPMInputWaveforms",
+						  "CherenkovWaveforms",
+						  "calvision ceren waveform collection name"};
+  Gaudi::Property<std::string> m_SiPMDigiTimeColl{this, 
+						  "CalvisionSiPMDigiWaveform",
+						  "CalvisionSiPMDigiWaveform",
+						  "calvision combo waveform collection name"};
 
+
+						  /*						  
+
+  Gaudi::Property<std::string> m_killedScint{this, 
+						  "killedScintPhotons",
+						  "killedScintPhotons",
+						  "killed scint photons"};
+
+  Gaudi::Property<std::string> m_passedScint{this, 
+						  "passedScintPhotons",
+						  "passedScintPhotons",
+						  "passed scint photons"};
+
+  Gaudi::Property<std::string> m_killedCheren{this, 
+						  "killedCherenPhotons",
+						  "killedCherenPhotons",
+						  "killed cheren photons"};
+
+  Gaudi::Property<std::string> m_passedCheren{this, 
+						  "passedCherenPhotons",
+						  "passedCherenPhotons",
+						  "passed cheren photons"};
+  */
 
   // Random Number Service
   SmartIF<IRndmGenSvc> m_randSvc;
@@ -90,6 +119,14 @@ class DualCrysElectronicsAlgo : public Gaudi::Algorithm {
   mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_in_scintwaveforms{m_inScintTimeColl,
       Gaudi::DataHandle::Reader,
       this};
+
+  mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_in_combo{"CalvisionSiPMDigiWaveform",
+      Gaudi::DataHandle::Reader,
+      this};
+
+  
+
+  
 
   // out
 

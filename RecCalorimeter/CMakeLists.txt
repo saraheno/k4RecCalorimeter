@@ -18,6 +18,7 @@ gaudi_add_module(k4RecCalorimeterPlugins
                       k4geo::detectorSegmentations
                       k4geo::detectorCommon
                       RecCaloCommon
+		      ngspice
                       ${FASTJET_LIBRARIES}
                       )
 
@@ -46,7 +47,7 @@ install(TARGETS k4RecCalorimeterPlugins
   COMPONENT dev)
 
 target_include_directories(k4RecCalorimeterPlugins PUBLIC ${FASTJET_INCLUDE_DIRS})
-target_link_directories(k4RecCalorimeterPlugins PUBLIC ${FASTJET_LIBRARY_DIRS})
+target_link_directories(k4RecCalorimeterPlugins PUBLIC ${FASTJET_LIBRARY_DIRS} ${PROJECT_SOURCE_DIR}/install/lib)
 
 include(CTest)
 

@@ -1,3 +1,6 @@
 [submodule "RecCalorimeter/tests/third-party/doctest"]
 	path = RecCalorimeter/tests/third-party/doctest
 	url = https://github.com/doctest/doctest
+[submodule "third-party/ngspice"]
+	path = third-party/ngspice
+	url = https://github.com/ngspice/ngspice

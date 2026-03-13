@@ -218,9 +218,9 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       ix -= 64;
     if (iy > 63)
       iy -= 64;
-    info() << "ix " << ix << ", iy " << iy;
-    info() << ", slice " << slice_id << ", layer" << layer_id;
-    info() << endmsg; 
+    //info() << "ix " << ix << ", iy " << iy;
+    //info() << ", slice " << slice_id << ", layer" << layer_id;
+    //info() << endmsg; 
     // not using the slice or layer at the moment,
     // but the upstream feeder should only give us particles from
     // the SiPM tower slice
@@ -231,9 +231,9 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       // scint
       float energy = hit.getEnergy()/CLHEP::eV;
       double wavelength = 1239.84187 / (1000*energy); 
-      info() << "Scint @ " << hit.getTime() << " Wavelength:" << wavelength;
-      info() << " Energy: " << energy << " eV?"; 
-      info() << endmsg;
+      //info() << "Scint @ " << hit.getTime() << " Wavelength:" << wavelength;
+      //info() << " Energy: " << energy << " eV?"; 
+      //info() << endmsg;
       photon sphoton {
 	.wavelength = wavelength,
 	.ix = ix,
@@ -250,9 +250,9 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       // cherenkov
       float energy = hit.getEnergy()/CLHEP::eV;
       double wavelength = 1239.84187 / (1000*energy); 
-      info() << "Cherenk @ " << hit.getTime() << " Wavelength:" << wavelength;
-      info() << " Energy: " << energy << " eV?"; 
-      info() << endmsg;
+      //info() << "Cherenk @ " << hit.getTime() << " Wavelength:" << wavelength;
+      //info() << " Energy: " << energy << " eV?"; 
+      //info() << endmsg;
       photon cphoton {
 	.wavelength = wavelength,
 	.ix = ix,
@@ -343,7 +343,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   for (auto &p : totalPhotons) {
 
     if ((p.wavelength <= 300.0) || (p.wavelength >= 1000.0)) {
-      info() << "Skipping photons <= 300 nm or >= 1000 nm" << endmsg;
+      //info() << "Skipping photons <= 300 nm or >= 1000 nm" << endmsg;
       storeKilledHit(p); 
       continue;
     }
@@ -358,8 +358,8 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     if (ftype != Filter_Type::NONE) { 
       if (randval > filterresponse ) {
 	storeKilledHit(p); 
-	info() << "Skipping " << p.wavelength << " nm photon.";
-	info() << " filter resp: " << filterresponse << " randval " << randval << endmsg; 
+	//info() << "Skipping " << p.wavelength << " nm photon.";
+	//info() << " filter resp: " << filterresponse << " randval " << randval << endmsg; 
 	//info() << "Skipping this photon, random val > filter resp" << endmsg;
 	continue;
       }
@@ -367,8 +367,8 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     randval =  m_rndmUniform.shoot();
     if (randval > response ) {
       storeKilledHit(p); 
-      info() << "Skipping " << p.wavelength << " nm photon.";
-      info() << " sipm resp: " << response << " randval: " << randval << endmsg; 
+      //info() << "Skipping " << p.wavelength << " nm photon.";
+      //info() << " sipm resp: " << response << " randval: " << randval << endmsg; 
 	//info() << "Skipping this photon, random val > sipm response" << endmsg;
       continue;
     }
