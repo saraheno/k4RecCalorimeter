@@ -10,7 +10,7 @@
 #include <edm4hep/CalorimeterHitCollection.h>
 #include <edm4hep/MutableCalorimeterHit.h>
 #include <memory>
-
+#include "DualCrysSiPMConstants.h"
 DECLARE_COMPONENT(DualCrysSiPMSim)
 
 DualCrysSiPMSim::DualCrysSiPMSim(const std::string& name, ISvcLocator* svclocator)
@@ -21,19 +21,6 @@ DualCrysSiPMSim::DualCrysSiPMSim(const std::string& name, ISvcLocator* svclocato
 
 
 }
-
-struct key {
-  int ix;
-  int iy;
-  int layer;
-  };
-
-// Defined in DualCrysSiPMAlgo, I'll change this around
-// eventually so it has a local version 
-bool operator<(const key &lhs, const key &rhs);
-
-    
-
 
 StatusCode DualCrysSiPMSim::initialize()
 {

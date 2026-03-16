@@ -18,9 +18,13 @@
 #include "DualCrysCalorimeterHit.h"
 #include "edm4hep/Constants.h"
 
-
+#include "DualCrysSiPMConstants.h"
 
 DECLARE_COMPONENT(DualCrysCollectionTest)
+
+
+
+
 
 
 DualCrysCollectionTest::DualCrysCollectionTest(const std::string &name, ISvcLocator *svcLoc)
@@ -44,6 +48,20 @@ DualCrysCollectionTest::DualCrysCollectionTest(const std::string &name, ISvcLoca
 
 
 StatusCode DualCrysCollectionTest::initialize() {
+
+    // Initialize random services
+  m_randSvc = service("RndmGenSvc", false);
+
+  if (!m_randSvc) {
+    error() << "Couldn't get RndmGenSvc!" << endmsg;
+    return StatusCode::FAILURE;
+  }
+
+  if (m_rndmUniform.initialize(m_randSvc, Rndm::Flat(0., 1.)).isFailure()) {
+    error() << "Couldn't initialize RndmGenSvc!" << endmsg;
+    return StatusCode::FAILURE;
+  }
+
   return StatusCode::SUCCESS;
 }
 
@@ -82,11 +100,141 @@ DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &s
       cPhotons.insert(end(cPhotons), begin(std::get<1>(photonTuple)), end(std::get<1>(photonTuple))); 
 
     }
-      
+
+  // Now we have all the photons for this event
   info() << "Found " << sPhotons.size() << " Scintillation photons." << endmsg;
   info() << "Found " << cPhotons.size() << " Cherenkov photons." << endmsg;
-  
 
+
+  auto wvlfilter = [](photon &p) { return p.wavelength <= 300.0 || p.wavelength >= 1000.0;}; 
+  
+  std::erase_if(sPhotons, wvlfilter);
+  std::erase_if(cPhotons, wvlfilter); 
+  info() << "After Erasing " << sPhotons.size() << " Scintillation photons." << endmsg;
+  info() << "After Erasing " << cPhotons.size() << " Cherenkov photons." << endmsg;
+
+
+  auto respfilter = [&](photon &p) {
+      double wvl, response; 
+      std::tie(wvl,response) = findnearest(SiPM_Type::RGB, p.wavelength);
+      double  randval = m_rndmUniform.shoot();
+      if (randval > response)
+	return true;
+      return false;
+  }; 
+
+
+  std::erase_if(sPhotons, respfilter);
+  std::erase_if(cPhotons, respfilter);
+
+  // double  randval;
+  // double wvl, response; 
+  // for (auto it = sPhotons.begin(); it != sPhotons.end(); ++it) {
+  //   std::tie(wvl,response) = findnearest(SiPM_Type::RGB, (*it).wavelength);
+  //   randval =  m_rndmUniform.shoot();
+  //   if (randval > response)
+  //     sPhotons.erase(it);
+  // }
+  // for (auto it = cPhotons.begin(); it != cPhotons.end(); ++it) {
+  //   std::tie(wvl,response) = findnearest(SiPM_Type::RGB, (*it).wavelength);
+  //   randval =  m_rndmUniform.shoot();
+  //   if (randval > response)
+  //     cPhotons.erase(it);
+  // }
+
+  info() << "After Response Cut " << sPhotons.size() << " Scintillation photons." << endmsg;
+  info() << "After Response Cut " << cPhotons.size() << " Cherenkov photons." << endmsg;
+
+
+  std::vector<double> xs(1024);
+  std::vector<double> scintSignal(1024);
+  std::vector<double> cherenkovSignal(1024);
+  double dt = 0.2; // sampling time in ns 
+  for (size_t i= 0; i< 1024; i++) {
+    xs[i] = dt*i;
+  }
+
+  
+  auto fillWaveform = [&](edm4hep::MutableTimeSeries &ts,
+			  std::vector<double> &wv, int ix, int iy, int layer) {
+    ts.setInterval(dt);
+    ts.setTime(0);
+    ts.setCellID((ix<<3)|(iy<<10)|(layer<<20));
+
+    for (size_t i = 0; i < 1024; i++) {
+      ts.addToAmplitude(wv[i]);
+    }
+
+  }; 
+
+  std::map<key,std::vector<double>> CherenWaveforms;
+  std::map<key,std::vector<double>> ScintWaveforms;
+
+  // create waveform positions 
+  for (auto &p : sPhotons) {
+    int idx = int(round(p.time/dt));
+    key k{.ix = p.ix,
+      .iy = p.iy,
+      .layer = p.layer}; 
+
+    if (ScintWaveforms.count(k) == 0) {
+      auto &vec = ScintWaveforms[k];
+      vec.resize(1024);
+    }
+    auto &pvec = ScintWaveforms[k]; 
+    
+    for (; idx < 1024; idx++) {
+      double offset = xs[idx]-p.time;
+      if (offset < 0.0)
+	offset = 0; 
+      pvec[idx] += DESY_SPR(offset); 
+    }
+
+
+  }
+  for (auto &p : cPhotons) {
+    int idx = int(round(p.time/dt));
+    key k{};
+    k.ix = p.ix;
+    k.iy = p.iy;
+    k.layer = p.layer; 
+    if (CherenWaveforms.count(k) == 0) {
+      auto &vec = CherenWaveforms[k];
+      vec.resize(1024);
+    }
+    auto &cvec = CherenWaveforms[k]; 
+    
+    for (; idx < 1024; idx++) {
+      double offset = xs[idx]-p.time;
+      if (offset < 0.0)
+	offset = 0; 
+      cvec[idx] += DESY_SPR(offset); 
+    }
+
+    
+  }
+
+  for (auto &[k,v] : ScintWaveforms) {
+    int ix = k.ix;
+    int iy = k.iy;
+    int layer = k.layer; 
+    
+    auto wv = scintillationWaveforms.create();
+
+    fillWaveform(wv, v, ix, iy,layer); 
+  }
+
+  for (auto &[k,v] : CherenWaveforms) {
+
+    int ix = k.ix;
+    int iy = k.iy;
+    int layer = k.layer; 
+    auto wv = cherenkovWaveforms.create();
+
+    fillWaveform(wv, v, ix, iy,layer); 
+  }
+  
+  
   
   return std::make_tuple(std::move(cherenkovWaveforms), std::move(scintillationWaveforms)); 
   

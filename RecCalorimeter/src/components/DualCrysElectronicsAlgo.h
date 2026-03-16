@@ -53,10 +53,10 @@ class DualCrysElectronicsAlgo : public Gaudi::Algorithm {
 
   static int send_char(char* str, int len, void* user);
   static int send_stat(char* str, int len, void* user);
-  static int controlled_exit(int exit_status, NG_BOOL immediate_exit, NG_BOOL on_quit, int ident, void* user);
+  static int controlled_exit(int exit_status, bool immediate_exit, bool on_quit, int ident, void* user);
   static int send_data(pvecvaluesall data, int num_vectors, int ident, void* user);
   static int send_init_data(pvecinfoall init_data, int ident, void* user);
-  static int bg_thread_running(NG_BOOL running, int ident, void* user);
+  static int bg_thread_running(bool running, int ident, void* user);
   // Helper function to cast userData to your class type
   static DualCrysElectronicsAlgo* get_callback_data(void* user) {
         return static_cast<DualCrysElectronicsAlgo*>(user);
@@ -65,11 +65,11 @@ class DualCrysElectronicsAlgo : public Gaudi::Algorithm {
   
  private:
   Gaudi::Property<std::string> m_outScintElecColl{this, "scintoutputElecTimeStructCollection", 
-      "CalvisionSiPMScintElecWaveform",
+      "ScintCircuitWaveform",
       "calvision scint electronics waveform collection name"};
 
   Gaudi::Property<std::string> m_outCherenElecColl{this, "cherenoutputTimeElecStructCollection", 
-      "CalvisionSiPMCherenElecWaveform",
+      "CherenkovCircuitWaveform",
       "calvision ceren electronics waveform collection name"};
 
     Gaudi::Property<std::string> m_inScintTimeColl{this, "ScintSiPMInputWaveforms", 
@@ -83,6 +83,11 @@ class DualCrysElectronicsAlgo : public Gaudi::Algorithm {
 						  "CalvisionSiPMDigiWaveform",
 						  "CalvisionSiPMDigiWaveform",
 						  "calvision combo waveform collection name"};
+
+  Gaudi::Property<std::string> m_spiceFile{this, 
+						  "spicefile",
+						  "50ohm.cir",
+						  "Spice circuit to use"};
 
 
 						  /*						  
@@ -125,11 +130,10 @@ class DualCrysElectronicsAlgo : public Gaudi::Algorithm {
       this};
 
   
-
+  mutable std::vector<double> waveform; 
   
 
   // out
-
   mutable k4FWCore::DataHandle<edm4hep::TimeSeriesCollection> m_cherenwaveforms{m_outCherenElecColl,
       Gaudi::DataHandle::Writer,
       this};

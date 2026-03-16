@@ -19,11 +19,14 @@ gaudi_add_module(k4RecCalorimeterPlugins
                       k4geo::detectorCommon
                       RecCaloCommon
 		      ngspice
+		      fftw3
                       ${FASTJET_LIBRARIES}
                       )
 
 target_include_directories(k4RecCalorimeterPlugins PUBLIC
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  /home/tba9h/Code/CalvisionSimulation/spice/share/ngspice/include
+)
 
 set(public_headers
   src/components/DualCrysCalDigi.h
@@ -47,7 +50,7 @@ install(TARGETS k4RecCalorimeterPlugins
   COMPONENT dev)
 
 target_include_directories(k4RecCalorimeterPlugins PUBLIC ${FASTJET_INCLUDE_DIRS})
-target_link_directories(k4RecCalorimeterPlugins PUBLIC ${FASTJET_LIBRARY_DIRS} ${PROJECT_SOURCE_DIR}/install/lib)
+target_link_directories(k4RecCalorimeterPlugins PUBLIC /home/tba9h/Code/CalvisionSimulation/spice/lib ${FASTJET_LIBRARY_DIRS} ${PROJECT_SOURCE_DIR}/install/lib)
 
 include(CTest)
 

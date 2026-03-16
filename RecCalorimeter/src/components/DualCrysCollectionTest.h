@@ -14,6 +14,10 @@
 #include "k4Interface/IGeoSvc.h"
 #include "k4Interface/IUniqueIDGenSvc.h"
 
+
+#include "GaudiKernel/IRndmGenSvc.h"
+#include "GaudiKernel/RndmGenerators.h"
+
 #include <Gaudi/PluginServiceV2.h>
 #include <GaudiKernel/ISvcLocator.h>
 #include <edm4hep/SimCalorimeterHit.h>
@@ -85,8 +89,11 @@ struct DualCrysCollectionTest final :
 
   SmartIF<IGeoSvc> m_geoSvc;
   SmartIF<IUniqueIDGenSvc> m_uidSvc;
+  // Random Number Service
+  SmartIF<IRndmGenSvc> m_randSvc;
+  Rndm::Numbers m_rndmUniform;
 
-    
+
 };
 
 
