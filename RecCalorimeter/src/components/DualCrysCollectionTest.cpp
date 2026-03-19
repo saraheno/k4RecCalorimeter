@@ -6,7 +6,9 @@
 #include <GaudiKernel/ISvcLocator.h>
 
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>  // abs
+#include <edm4hep/CalorimeterHitCollection.h>
 #include <edm4hep/TimeSeriesCollection.h>
 #include <k4FWCore/Transformer.h>
 #include <tuple>
@@ -35,8 +37,13 @@ DualCrysCollectionTest::DualCrysCollectionTest(const std::string &name, ISvcLoca
 		   },
 		   {
 		     KeyValues("ScintillationSiPMWaveforms", {"ScintWaveforms"}),
-		     KeyValues("CherenkovSiPMWaveforms", {"CherenkovWaveforms"})}
-		   ) {
+		     KeyValues("CherenkovSiPMWaveforms", {"CherenkovWaveforms"}),
+		     KeyValues("passedCherenkovHits", {"passedCherenkovHits"}),
+		     KeyValues("passedScintillationHits", {"passedScintillationHits"}),
+		     KeyValues("killedCherenkovHits", {"killedCherenkovHits"}),
+		     KeyValues("killedScintillationHits", {"killedScintillationHits"})
+		   })
+		    {
   m_uidSvc = service<IUniqueIDGenSvc>("UniqueIDGenSvc", true);
   if (!m_uidSvc) {
     error() << "Unable to get UniqueIDGenSvc" << endmsg;
@@ -66,7 +73,11 @@ StatusCode DualCrysCollectionTest::initialize() {
 }
 
 std::tuple<edm4hep::TimeSeriesCollection, 
-	   edm4hep::TimeSeriesCollection>
+	   edm4hep::TimeSeriesCollection,
+	   edm4hep::CalorimeterHitCollection,
+	   edm4hep::CalorimeterHitCollection,
+	   edm4hep::CalorimeterHitCollection,
+	   edm4hep::CalorimeterHitCollection>
 DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &simCaloHits,
 				   const edm4hep::EventHeaderCollection& headers) const {
 
@@ -77,44 +88,45 @@ DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &s
   edm4hep::TimeSeriesCollection cherenkovWaveforms;
   edm4hep::TimeSeriesCollection scintillationWaveforms;
 
+  edm4hep::CalorimeterHitCollection passedCherenkovHits;
+  edm4hep::CalorimeterHitCollection passedScintillationHits;
+  edm4hep::CalorimeterHitCollection killedCherenkovHits;
+  edm4hep::CalorimeterHitCollection killedScintillationHits;
+  
+
+  
+
+  // Pull the cellID Description from the geometry if available
+  // If not, pull from the bitField property
   auto *detector = m_geoSvc->getDetector();
   auto &constants = detector->constants();
-  debug() << "Count of constants:" << constants.size() << endmsg;
-  debug() << "Hit Count:" << simCaloHits.size() << endmsg; 
-  for (auto &[k, v] : constants) {
-    debug() << "Detector Constant:" << k << endmsg;
+  std::string cellid_definition = m_bitField; 
+  if (constants.empty()) {
+    debug() << "No Constants....did you load the geometry?" << endmsg; 
   }
+  else {
 
-  std::string initString;
-  initString =       "system:3,ix:-7,iy:-7,slice:3,layer:3,wc:3";
-  dd4hep::DDSegmentation::BitFieldCoder bitFieldCoder(initString);  // check!
+    auto readout = detector->readout(m_detectorNameEcal);
+    info() << "Readout name:" << readout.name() << endmsg;
+    auto cidDesc = readout.segmentation().segmentation()->fieldDescription(); 
+    info() << "Readout Segmentation Field Description:" << cidDesc << endmsg; 
+    cellid_definition = cidDesc; 
+
+  }
+  
+  debug() << "Hit Count:" << simCaloHits.size() << endmsg; 
+
+  dd4hep::DDSegmentation::BitFieldCoder bitFieldCoder(cellid_definition);  
 
 
   std::vector<photon> sPhotons;
   std::vector<photon> cPhotons; 
+
+  auto wvlfilter = [](const photon &p) {
+    return p.wavelength <= 300.0 || p.wavelength >= 1000.0;
+  };
   
-  for (const auto& hit : simCaloHits)
-    {
-      auto photonTuple = processHit(hit);
-      sPhotons.insert(end(sPhotons), begin(std::get<0>(photonTuple)), end(std::get<0>(photonTuple))); 
-      cPhotons.insert(end(cPhotons), begin(std::get<1>(photonTuple)), end(std::get<1>(photonTuple))); 
-
-    }
-
-  // Now we have all the photons for this event
-  info() << "Found " << sPhotons.size() << " Scintillation photons." << endmsg;
-  info() << "Found " << cPhotons.size() << " Cherenkov photons." << endmsg;
-
-
-  auto wvlfilter = [](photon &p) { return p.wavelength <= 300.0 || p.wavelength >= 1000.0;}; 
-  
-  std::erase_if(sPhotons, wvlfilter);
-  std::erase_if(cPhotons, wvlfilter); 
-  info() << "After Erasing " << sPhotons.size() << " Scintillation photons." << endmsg;
-  info() << "After Erasing " << cPhotons.size() << " Cherenkov photons." << endmsg;
-
-
-  auto respfilter = [&](photon &p) {
+  auto respfilter = [&](const photon &p) {
       double wvl, response; 
       std::tie(wvl,response) = findnearest(SiPM_Type::RGB, p.wavelength);
       double  randval = m_rndmUniform.shoot();
@@ -124,96 +136,135 @@ DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &s
   }; 
 
 
-  std::erase_if(sPhotons, respfilter);
-  std::erase_if(cPhotons, respfilter);
+  std::vector<std::function<bool (const photon &p)>> filterFns;
+  filterFns.push_back(wvlfilter); 
+  filterFns.push_back(respfilter);
 
-  // double  randval;
-  // double wvl, response; 
-  // for (auto it = sPhotons.begin(); it != sPhotons.end(); ++it) {
-  //   std::tie(wvl,response) = findnearest(SiPM_Type::RGB, (*it).wavelength);
-  //   randval =  m_rndmUniform.shoot();
-  //   if (randval > response)
-  //     sPhotons.erase(it);
-  // }
-  // for (auto it = cPhotons.begin(); it != cPhotons.end(); ++it) {
-  //   std::tie(wvl,response) = findnearest(SiPM_Type::RGB, (*it).wavelength);
-  //   randval =  m_rndmUniform.shoot();
-  //   if (randval > response)
-  //     cPhotons.erase(it);
-  // }
+  
+  auto processPhoton = [](const std::vector<photon> &ps,
+			   std::vector<photon> &livePhotons,
+			   edm4hep::CalorimeterHitCollection &pass,
+			   edm4hep::CalorimeterHitCollection &kill,
+			   std::vector<std::function<bool (const photon &p)>> &filters
+			   ) {
 
-  info() << "After Response Cut " << sPhotons.size() << " Scintillation photons." << endmsg;
-  info() << "After Response Cut " << cPhotons.size() << " Cherenkov photons." << endmsg;
+    for (const photon &p : ps) {
+      bool passPhoton = true;
+      for (auto &f : filters) {
+	if (f(p))
+	  passPhoton = false; 
+      }
+      
+      
+      if (!passPhoton) { 
+	auto hit = kill.create();
+	hit.setCellID(p.cellid);
+	hit.setEnergy(p.energy);
+      }
+      else {
+	auto hit = pass.create();
+	hit.setCellID(p.cellid);
+	hit.setEnergy(p.energy); 
+	livePhotons.push_back(p);
+      }
+
+    }
+  }; 
+  
+  
+  for (const auto& hit : simCaloHits)
+    {
+
+      auto [sphts, cphts] = processHit(hit);
+
+      processPhoton(sphts, sPhotons, passedScintillationHits, 
+		    killedScintillationHits,filterFns); 
+      processPhoton(cphts, cPhotons, 
+		    passedCherenkovHits, killedCherenkovHits,filterFns); 
+
+      //      auto photonTuple = processHit(hit);
+      //sPhotons.insert(end(sPhotons), begin(std::get<0>(photonTuple)), end(std::get<0>(photonTuple))); 
+      //cPhotons.insert(end(cPhotons), begin(std::get<1>(photonTuple)), end(std::get<1>(photonTuple))); 
+
+    }
+
+  // Now we have all the photons for this event
+  info() << "Found " << sPhotons.size() << " Scintillation photons." << endmsg;
+  info() << "Found " << cPhotons.size() << " Cherenkov photons." << endmsg;
 
 
-  std::vector<double> xs(1024);
-  std::vector<double> scintSignal(1024);
-  std::vector<double> cherenkovSignal(1024);
-  double dt = 0.2; // sampling time in ns 
-  for (size_t i= 0; i< 1024; i++) {
+ 
+
+  std::vector<double> xs(m_samples);
+  std::vector<double> scintSignal(m_samples);
+  std::vector<double> cherenkovSignal(m_samples);
+
+  double dt;
+  if (m_samplerate < 0. || m_samplerate == 0.) 
+    dt = 0.2; 
+  else
+    dt = m_samplerate; // sampling time in ns 
+
+  for (size_t i= 0; i< m_samples; i++) {
     xs[i] = dt*i;
   }
 
   
-  auto fillWaveform = [&](edm4hep::MutableTimeSeries &ts,
-			  std::vector<double> &wv, int ix, int iy, int layer) {
-    ts.setInterval(dt);
+  auto fillWaveform = [](edm4hep::MutableTimeSeries &ts,
+			  std::vector<double> &wv, 
+			 int ix, int iy, int layer,
+			 double sampleRate,
+			 size_t samples) {
+    ts.setInterval(sampleRate);
     ts.setTime(0);
     ts.setCellID((ix<<3)|(iy<<10)|(layer<<20));
 
-    for (size_t i = 0; i < 1024; i++) {
+    for (size_t i = 0; i < samples; i++) {
       ts.addToAmplitude(wv[i]);
     }
-
   }; 
 
   std::map<key,std::vector<double>> CherenWaveforms;
   std::map<key,std::vector<double>> ScintWaveforms;
 
+
+
+  auto gen_waveform_positions = [](const std::vector<photon> &photons,
+				   const std::vector<double> &timev,
+				   std::map<key,std::vector<double>> &waveMap,
+				   double sampleRate,
+				   size_t samples) {
+    
+    for (const auto &p : photons) {
+      size_t idx = int(round(p.time/sampleRate));
+      key k{.ix = p.ix,
+	    .iy = p.iy,
+	    .layer = p.layer
+      }; 
+      
+      if (waveMap.count(k) == 0) {
+	auto &vec = waveMap[k];
+	vec.resize(samples);
+      }
+      auto &pvec = waveMap[k]; 
+    
+      for (; idx < samples; idx++) {
+	double offset = timev[idx]-p.time;
+	if (offset < 0.0)
+	  offset = 0; 
+	pvec[idx] += DESY_SPR(offset); 
+      }
+    }
+    
+  };
+
+
   // create waveform positions 
-  for (auto &p : sPhotons) {
-    int idx = int(round(p.time/dt));
-    key k{.ix = p.ix,
-      .iy = p.iy,
-      .layer = p.layer}; 
-
-    if (ScintWaveforms.count(k) == 0) {
-      auto &vec = ScintWaveforms[k];
-      vec.resize(1024);
-    }
-    auto &pvec = ScintWaveforms[k]; 
-    
-    for (; idx < 1024; idx++) {
-      double offset = xs[idx]-p.time;
-      if (offset < 0.0)
-	offset = 0; 
-      pvec[idx] += DESY_SPR(offset); 
-    }
+  gen_waveform_positions(sPhotons, xs, ScintWaveforms, dt, m_samples);
+  gen_waveform_positions(cPhotons, xs, CherenWaveforms, dt, m_samples);
 
 
-  }
-  for (auto &p : cPhotons) {
-    int idx = int(round(p.time/dt));
-    key k{};
-    k.ix = p.ix;
-    k.iy = p.iy;
-    k.layer = p.layer; 
-    if (CherenWaveforms.count(k) == 0) {
-      auto &vec = CherenWaveforms[k];
-      vec.resize(1024);
-    }
-    auto &cvec = CherenWaveforms[k]; 
-    
-    for (; idx < 1024; idx++) {
-      double offset = xs[idx]-p.time;
-      if (offset < 0.0)
-	offset = 0; 
-      cvec[idx] += DESY_SPR(offset); 
-    }
-
-    
-  }
-
+  
   for (auto &[k,v] : ScintWaveforms) {
     int ix = k.ix;
     int iy = k.iy;
@@ -221,7 +272,7 @@ DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &s
     
     auto wv = scintillationWaveforms.create();
 
-    fillWaveform(wv, v, ix, iy,layer); 
+    fillWaveform(wv, v, ix, iy,layer,dt,m_samples); 
   }
 
   for (auto &[k,v] : CherenWaveforms) {
@@ -231,12 +282,18 @@ DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &s
     int layer = k.layer; 
     auto wv = cherenkovWaveforms.create();
 
-    fillWaveform(wv, v, ix, iy,layer); 
+    fillWaveform(wv, v, ix, iy,layer,dt,m_samples); 
   }
   
   
   
-  return std::make_tuple(std::move(cherenkovWaveforms), std::move(scintillationWaveforms)); 
+  return std::make_tuple(std::move(cherenkovWaveforms), 
+			 std::move(scintillationWaveforms),
+			 std::move(passedCherenkovHits),
+			 std::move(passedScintillationHits),
+			 std::move(killedCherenkovHits),
+			 std::move(killedScintillationHits)
+			 ); 
   
 }
 
@@ -258,26 +315,20 @@ bool DualCrysCollectionTest::useLayer(CHT::Layout caloLayout, unsigned int layer
 }  //useLayer
 
 
-typedef std::vector<DualCrysCollectionTest::photon> PhotonVector;
+typedef std::vector<photon> PhotonVector;
 std::tuple<PhotonVector, PhotonVector> 
 DualCrysCollectionTest::processHit(const edm4hep::SimCalorimeterHit &hit) const {
 
   PhotonVector sPhotons;
   PhotonVector cPhotons; 
-  const int cellID = hit.getCellID();
-  int slice_id = ((0x7<<17&cellID)>>17);
-  int layer_id = ((0x7<<20&cellID)>>20);
-  int ix = (0x7f<<3&cellID)>>3;
-  int iy = (0x7f<<10&cellID)>>10;
-  if (ix > 63)
-    ix -= 64;
-  if (iy > 63)
-    iy -= 64;
+  const uint64_t cellID = hit.getCellID();
+
+  unpackedcellID cid = unpackCellID(cellID);
   
 
   
-  bool first_pd = (slice_id == 4) && (layer_id == 1);
-  bool second_pd = (slice_id == 1) && (layer_id == 0);
+  bool first_pd = (cid.slice == 4) && (cid.layer == 1);
+  bool second_pd = (cid.slice == 1) && (cid.layer == 0);
   if (first_pd || second_pd) {
     if (hit.isAvailable()) {
       for (auto step = hit.contributions_begin();
@@ -287,11 +338,13 @@ DualCrysCollectionTest::processHit(const edm4hep::SimCalorimeterHit &hit) const 
 	double wavelength = 1239.84187 / (1000*energy); 
 	photon p {
 	  .wavelength = wavelength,
-	  .ix = ix,
-	  .iy = iy,
-	  .layer = layer_id,
+	  .energy = energy,
+	  .ix = cid.ix,
+	  .iy = cid.iy,
+	  .layer = cid.layer,
 	  .time = step->getTime(),
-		.photon_type = step->getPDG()
+	  .photon_type = step->getPDG(),
+	  .cellid = cellID
 	} ;
 	if (step->getPDG() == -22)
 	  sPhotons.push_back(p);
