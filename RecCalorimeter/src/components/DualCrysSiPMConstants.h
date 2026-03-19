@@ -44,6 +44,11 @@ bool operator<(const key &lhs, const key &rhs);
 
 
 
+enum class SiPM_Algorithm {
+  DESY,
+  SIM_SIPM
+}; 
+
   enum class Filter_Type {
     NONE,
     U330,

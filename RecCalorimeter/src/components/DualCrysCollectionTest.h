@@ -28,6 +28,9 @@
 
 #include "DualCrysSiPMConstants.h"
 
+#include <sipm/SiPMProperties.h>
+#include <sipm/SiPMSensor.h>
+
 
 struct DualCrysCollectionTest final :
 
@@ -66,7 +69,10 @@ struct DualCrysCollectionTest final :
 
   bool useLayer(CHT::Layout caloLayout, unsigned int layer) const; 
 
-
+  SiPM_Algorithm sipmAlgo; 
+  Gaudi::Property<std::string> m_SiPMAlgorithm { this, "SiPMAlgorithm", "DESY",
+						    "The SiPM Algorithm used for waveform construction"}; 
+  
   Gaudi::Property<std::string> m_calCollections{this, "calCollections", "DRCNoSegment",
                                                 "The input collection of calorimeters"};
   Gaudi::Property<std::string> outputCalCollection{this, "outputCalCollection", "outputCalCollection",
@@ -97,6 +103,47 @@ struct DualCrysCollectionTest final :
   // Random Number Service
   SmartIF<IRndmGenSvc> m_randSvc;
   Rndm::Numbers m_rndmUniform;
+
+
+
+  // Sim SiPM Properties
+  sipm::SiPMProperties sipmProp;
+  
+
+  // Properties pulled from SimulatedSiPMwithOpticalPhoton.hamamatsu 
+  // SiPM properties (defaults set based on Hamamatsu S14160-1310PS)
+  // Signal properties
+  //  Gaudi::Property<double> m_sigLength{this, "signalLength", 200., "Signal length in ns"};
+  //  Gaudi::Property<double> m_sampling{this, "sampling", 0.1, "SiPM sampling rate in ns"};
+  Gaudi::Property<double> m_risetime{this, "risetime", 1., "Signal rise time in ns"};
+  Gaudi::Property<double> m_falltimeFast{this, "falltimeFast", 6.5, "Signal fast component decay time in ns"};
+
+
+  // SiPM physical properties
+  Gaudi::Property<double> m_sipmSize{this, "SiPMsize", 1.3, "Width of photosensitive area in mm"};
+  Gaudi::Property<double> m_cellPitch{this, "cellpitch", 10., "SiPM cell size in um"};
+  Gaudi::Property<double> m_recovery{this, "recovery", 10., "SiPM cell recovery time in ns"};
+
+  // Noise parameters
+  Gaudi::Property<double> m_Dcr{this, "DCR", 120e3, "SiPM dark count rate in Hz"};
+  Gaudi::Property<double> m_Xt{this, "Xtalk", 0.01, "SiPM optical crosstalk probability"};
+  Gaudi::Property<double> m_afterpulse{this, "afterpulse", 0.03, "Afterpulse probability"};
+  Gaudi::Property<double> m_snr{this, "SNR", 20., "Signal-to-noise ratio in dB"};
+
+  // Integration parameters
+  Gaudi::Property<double> m_gateStart{this, "gateStart", 5., "Integration gate starting time in ns"};
+  Gaudi::Property<double> m_gateL{this, "gateLength", 95., "Integration gate length in ns"};
+  Gaudi::Property<double> m_thres{this, "threshold", 1.5, "Integration threshold in photoelectrons"};
+
+  // other parameters (attention, will override above parameters if set)
+  Gaudi::Property<std::map<std::string,double>> m_params{this, "params", {}, "optional parameters"};
+
+  // SiPM efficiency
+  Gaudi::Property<std::vector<double>> m_wavelen{
+      this, "wavelength", {1000., 100.}, "wavelength vector in nm (decreasing order)"};
+  Gaudi::Property<std::vector<double>> m_sipmEff{this, "sipmEfficiency", {0.1, 0.1},
+						 "SiPM efficiency vs wavelength"};
+
 
 
 };

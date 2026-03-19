@@ -11,6 +11,9 @@
 #include <edm4hep/CalorimeterHitCollection.h>
 #include <edm4hep/TimeSeriesCollection.h>
 #include <k4FWCore/Transformer.h>
+#include <sipm/SiPMAnalogSignal.h>
+#include <sipm/SiPMProperties.h>
+#include <sipm/SiPMSensor.h>
 #include <tuple>
 #include "DD4hep/DD4hepUnits.h"
 #include "DD4hep/Detector.h"
@@ -69,6 +72,48 @@ StatusCode DualCrysCollectionTest::initialize() {
     return StatusCode::FAILURE;
   }
 
+  std::string algo = m_SiPMAlgorithm.toString();
+  if (algo.find("DESY") != std::string::npos) {
+    sipmAlgo = SiPM_Algorithm::DESY;
+  }
+  else if (algo.find("SIM_SIPM") != std::string::npos) {
+    sipmAlgo = SiPM_Algorithm::SIM_SIPM;
+  // setup sipm properties
+
+    //sipmProp.setSignalLength(204.8);
+    //    sipmProp.setSampling(0.2);
+    if (m_samplerate > 0.) 
+      sipmProp.setSampling(m_samplerate);
+    else
+      sipmProp.setSampling(0.2);
+
+    sipmProp.setSignalLength(sipmProp.sampling()*m_samples);
+    sipmProp.setSize(m_sipmSize);
+    sipmProp.setDcr(m_Dcr);
+    sipmProp.setXt(m_Xt);
+    sipmProp.setSampling(m_samplerate);
+    sipmProp.setRecoveryTime(m_recovery);
+    sipmProp.setPitch(m_cellPitch);
+    sipmProp.setAp(m_afterpulse);
+    sipmProp.setFallTimeFast(m_falltimeFast);
+    sipmProp.setRiseTime(m_risetime);
+    sipmProp.setSnr(m_snr);
+    // Set the PDE type to spectrum PDE
+    sipmProp.setPdeType(sipm::SiPMProperties::PdeType::kSpectrumPde);
+    // Set the PDE spectrum
+    sipmProp.setPdeSpectrum(m_wavelen.value(), m_sipmEff.value());
+
+    
+
+    
+  }
+  else {
+    error() << algo << " value does not match either DESY or SIM_SIPM" << endmsg;
+    error() << "Defaulting to DESY" << endmsg;
+    sipmAlgo = SiPM_Algorithm::DESY;
+  }
+
+  
   return StatusCode::SUCCESS;
 }
 
@@ -114,8 +159,20 @@ DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &s
 
   }
   
-  debug() << "Hit Count:" << simCaloHits.size() << endmsg; 
+  debug() << "Hit Count:" << simCaloHits.size() << endmsg;
+  switch (sipmAlgo) { 
+  case SiPM_Algorithm::SIM_SIPM: {
+    debug() << "Using SIM_SIPM for Waveform construction" << endmsg;
+    break;
+  }
+  case SiPM_Algorithm::DESY: {
+    debug() << "Using DESY for Waveform construction" << endmsg;
+    break;
+  }
+  
+  };
 
+  
   dd4hep::DDSegmentation::BitFieldCoder bitFieldCoder(cellid_definition);  
 
 
@@ -136,9 +193,14 @@ DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &s
   }; 
 
 
+
+  
   std::vector<std::function<bool (const photon &p)>> filterFns;
-  filterFns.push_back(wvlfilter); 
-  filterFns.push_back(respfilter);
+  filterFns.push_back(wvlfilter);
+
+  // Only use our extra response filtering with the DESY Algorithm
+  if (sipmAlgo == SiPM_Algorithm::DESY) 
+    filterFns.push_back(respfilter);
 
   
   auto processPhoton = [](const std::vector<photon> &ps,
@@ -205,87 +267,147 @@ DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &s
   else
     dt = m_samplerate; // sampling time in ns 
 
-  for (size_t i= 0; i< m_samples; i++) {
-    xs[i] = dt*i;
-  }
+
+
 
   
-  auto fillWaveform = [](edm4hep::MutableTimeSeries &ts,
-			  std::vector<double> &wv, 
-			 int ix, int iy, int layer,
-			 double sampleRate,
-			 size_t samples) {
-    ts.setInterval(sampleRate);
-    ts.setTime(0);
-    ts.setCellID((ix<<3)|(iy<<10)|(layer<<20));
+  if (sipmAlgo == SiPM_Algorithm::DESY) { 
 
-    for (size_t i = 0; i < samples; i++) {
-      ts.addToAmplitude(wv[i]);
+    std::map<key,std::vector<double>> CherenWaveforms;
+    std::map<key,std::vector<double>> ScintWaveforms;
+  
+  
+    for (size_t i= 0; i< m_samples; i++) {
+      xs[i] = dt*i;
     }
-  }; 
 
-  std::map<key,std::vector<double>> CherenWaveforms;
-  std::map<key,std::vector<double>> ScintWaveforms;
+    auto fillWaveform = [](edm4hep::MutableTimeSeries &ts,
+			   std::vector<double> &wv, 
+			   int ix, int iy, int layer,
+			   double sampleRate,
+			   size_t samples) {
+      ts.setInterval(sampleRate);
+      ts.setTime(0);
+      ts.setCellID((ix<<3)|(iy<<10)|(layer<<20));
 
+      for (size_t i = 0; i < samples; i++) {
+	ts.addToAmplitude(wv[i]);
+      }
+    }; 
 
-
-  auto gen_waveform_positions = [](const std::vector<photon> &photons,
-				   const std::vector<double> &timev,
-				   std::map<key,std::vector<double>> &waveMap,
-				   double sampleRate,
-				   size_t samples) {
+    auto gen_waveform_positions = [](const std::vector<photon> &photons,
+				     const std::vector<double> &timev,
+				     std::map<key,std::vector<double>> &waveMap,
+				     double sampleRate,
+				     size_t samples) {
     
-    for (const auto &p : photons) {
-      size_t idx = int(round(p.time/sampleRate));
-      key k{.ix = p.ix,
-	    .iy = p.iy,
-	    .layer = p.layer
-      }; 
+      for (const auto &p : photons) {
+	size_t idx = int(round(p.time/sampleRate));
+	key k{.ix = p.ix,
+	      .iy = p.iy,
+	      .layer = p.layer
+	}; 
       
-      if (waveMap.count(k) == 0) {
-	auto &vec = waveMap[k];
-	vec.resize(samples);
-      }
-      auto &pvec = waveMap[k]; 
+	if (waveMap.count(k) == 0) {
+	  auto &vec = waveMap[k];
+	  vec.resize(samples);
+	}
+	auto &pvec = waveMap[k]; 
     
-      for (; idx < samples; idx++) {
-	double offset = timev[idx]-p.time;
-	if (offset < 0.0)
-	  offset = 0; 
-	pvec[idx] += DESY_SPR(offset); 
+	for (; idx < samples; idx++) {
+	  double offset = timev[idx]-p.time;
+	  if (offset < 0.0)
+	    offset = 0; 
+	  pvec[idx] += DESY_SPR(offset); 
+	}
       }
+    
+    };
+
+
+    // create waveform positions 
+    gen_waveform_positions(sPhotons, xs, ScintWaveforms, dt, m_samples);
+    gen_waveform_positions(cPhotons, xs, CherenWaveforms, dt, m_samples);
+
+
+  
+    for (auto &[k,v] : ScintWaveforms) {
+      int ix = k.ix;
+      int iy = k.iy;
+      int layer = k.layer; 
+    
+      auto wv = scintillationWaveforms.create();
+
+      fillWaveform(wv, v, ix, iy,layer,dt,m_samples); 
     }
-    
-  };
 
+    for (auto &[k,v] : CherenWaveforms) {
 
-  // create waveform positions 
-  gen_waveform_positions(sPhotons, xs, ScintWaveforms, dt, m_samples);
-  gen_waveform_positions(cPhotons, xs, CherenWaveforms, dt, m_samples);
+      int ix = k.ix;
+      int iy = k.iy;
+      int layer = k.layer; 
+      auto wv = cherenkovWaveforms.create();
 
-
+      fillWaveform(wv, v, ix, iy,layer,dt,m_samples); 
+    }
   
-  for (auto &[k,v] : ScintWaveforms) {
-    int ix = k.ix;
-    int iy = k.iy;
-    int layer = k.layer; 
-    
-    auto wv = scintillationWaveforms.create();
-
-    fillWaveform(wv, v, ix, iy,layer,dt,m_samples); 
   }
 
-  for (auto &[k,v] : CherenWaveforms) {
+  if (sipmAlgo == SiPM_Algorithm::SIM_SIPM) {
 
-    int ix = k.ix;
-    int iy = k.iy;
-    int layer = k.layer; 
-    auto wv = cherenkovWaveforms.create();
+    std::map<key,sipm::SiPMSensor> CherenWaveforms;
+    std::map<key,sipm::SiPMSensor> ScintWaveforms;
 
-    fillWaveform(wv, v, ix, iy,layer,dt,m_samples); 
+    
+    auto gen_positions = [] (const std::vector<photon> &photons,
+			     std::map<key,sipm::SiPMSensor> &waveMap,
+			     const sipm::SiPMProperties &sipmprops) {
+
+      for (const auto &p : photons ) {
+
+	key k{};
+	k.ix = p.ix;
+	k.iy = p.iy;
+	k.layer = p.layer;
+	if (waveMap.count(k) == 0) {
+	  waveMap[k] = sipm::SiPMSensor(sipmprops);
+	}
+	auto &sensor = waveMap[k];
+	sensor.addPhoton(p.time, p.wavelength);
+      }
+    }; 
+
+
+    gen_positions(sPhotons, ScintWaveforms, sipmProp);
+    gen_positions(cPhotons, CherenWaveforms, sipmProp);
+
+    auto fillWaveform = []( key k, sipm::SiPMSensor &sensor,
+			     edm4hep::MutableTimeSeries &ts)
+    {
+
+      ts.setInterval(sensor.properties().sampling());
+      ts.setTime(0);
+      uint64_t cID = (k.ix << 3)|(k.iy << 10)|(k.layer<<20);
+      ts.setCellID(cID);
+      sensor.runEvent();
+      sipm::SiPMAnalogSignal signal = sensor.signal();
+
+      for (auto pt: signal.waveform()) {
+	ts.addToAmplitude(pt);
+      }
+
+    }; 
+
+    for (auto &[k,sensor] : ScintWaveforms) {
+      auto wvfrm = scintillationWaveforms.create();
+      fillWaveform(k, ScintWaveforms[k], wvfrm);
+    }
+    for (auto &[k,sensor] : CherenWaveforms) {
+      auto wvfrm = cherenkovWaveforms.create();
+      fillWaveform(k, CherenWaveforms[k], wvfrm);
+    }
+
   }
-  
-  
   
   return std::make_tuple(std::move(cherenkovWaveforms), 
 			 std::move(scintillationWaveforms),
