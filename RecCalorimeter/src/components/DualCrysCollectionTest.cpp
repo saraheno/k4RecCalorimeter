@@ -244,10 +244,6 @@ DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &s
       processPhoton(cphts, cPhotons, 
 		    passedCherenkovHits, killedCherenkovHits,filterFns); 
 
-      //      auto photonTuple = processHit(hit);
-      //sPhotons.insert(end(sPhotons), begin(std::get<0>(photonTuple)), end(std::get<0>(photonTuple))); 
-      //cPhotons.insert(end(cPhotons), begin(std::get<1>(photonTuple)), end(std::get<1>(photonTuple))); 
-
     }
 
   // Now we have all the photons for this event
@@ -295,61 +291,26 @@ DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &s
       }
     }; 
 
-    auto gen_waveform_positions = [](const std::vector<photon> &photons,
-				     const std::vector<double> &timev,
-				     std::map<key,std::vector<double>> &waveMap,
-				     double sampleRate,
-				     size_t samples) {
-    
-      for (const auto &p : photons) {
-	size_t idx = int(round(p.time/sampleRate));
-	key k{.ix = p.ix,
-	      .iy = p.iy,
-	      .layer = p.layer
-	}; 
-      
-	if (waveMap.count(k) == 0) {
-	  auto &vec = waveMap[k];
-	  vec.resize(samples);
-	}
-	auto &pvec = waveMap[k]; 
-    
-	for (; idx < samples; idx++) {
-	  double offset = timev[idx]-p.time;
-	  if (offset < 0.0)
-	    offset = 0; 
-	  pvec[idx] += DESY_SPR(offset); 
-	}
-      }
-    
-    };
 
 
     // create waveform positions 
-    gen_waveform_positions(sPhotons, xs, ScintWaveforms, dt, m_samples);
-    gen_waveform_positions(cPhotons, xs, CherenWaveforms, dt, m_samples);
+    generate_waveform_positions(sPhotons, xs, ScintWaveforms, dt, m_samples);
+    generate_waveform_positions(cPhotons, xs, CherenWaveforms, dt, m_samples);
 
-
-  
-    for (auto &[k,v] : ScintWaveforms) {
+    auto filler = [&](std::map<key,std::vector<double>> &waves,
+		      edm4hep::TimeSeriesCollection &waveCollection)
+    {
+      for (auto &[k,v] : waves) {
       int ix = k.ix;
       int iy = k.iy;
       int layer = k.layer; 
-    
-      auto wv = scintillationWaveforms.create();
-
-      fillWaveform(wv, v, ix, iy,layer,dt,m_samples); 
-    }
-
-    for (auto &[k,v] : CherenWaveforms) {
-
-      int ix = k.ix;
-      int iy = k.iy;
-      int layer = k.layer; 
-      auto wv = cherenkovWaveforms.create();
-
-      fillWaveform(wv, v, ix, iy,layer,dt,m_samples); 
-    }
+      auto wv = waveCollection.create();
+      fillWaveform(wv, v, ix, iy,layer,dt,m_samples);
+      }
+    };
+      
+    filler(ScintWaveforms, scintillationWaveforms);
+    filler(CherenWaveforms, cherenkovWaveforms); 
   
   }
 
@@ -359,27 +320,9 @@ DualCrysCollectionTest::operator()(const edm4hep::SimCalorimeterHitCollection &s
     std::map<key,sipm::SiPMSensor> ScintWaveforms;
 
     
-    auto gen_positions = [] (const std::vector<photon> &photons,
-			     std::map<key,sipm::SiPMSensor> &waveMap,
-			     const sipm::SiPMProperties &sipmprops) {
 
-      for (const auto &p : photons ) {
-
-	key k{};
-	k.ix = p.ix;
-	k.iy = p.iy;
-	k.layer = p.layer;
-	if (waveMap.count(k) == 0) {
-	  waveMap[k] = sipm::SiPMSensor(sipmprops);
-	}
-	auto &sensor = waveMap[k];
-	sensor.addPhoton(p.time, p.wavelength);
-      }
-    }; 
-
-
-    gen_positions(sPhotons, ScintWaveforms, sipmProp);
-    gen_positions(cPhotons, CherenWaveforms, sipmProp);
+    generate_waveform_positions(sPhotons, ScintWaveforms, sipmProp);
+    generate_waveform_positions(cPhotons, CherenWaveforms, sipmProp);
 
     auto fillWaveform = []( key k, sipm::SiPMSensor &sensor,
 			     edm4hep::MutableTimeSeries &ts)
@@ -476,6 +419,56 @@ DualCrysCollectionTest::processHit(const edm4hep::SimCalorimeterHit &hit) const 
     }
   }
   return std::make_tuple(sPhotons, cPhotons); 
-  
+
+}
+
+
+void DualCrysCollectionTest::generate_waveform_positions(const std::vector<photon> &photons,
+							 std::map<key,sipm::SiPMSensor> &waveMap,
+							 const sipm::SiPMProperties &sipmprops) const
+{
+      for (const auto &p : photons ) {
+
+	key k{};
+	k.ix = p.ix;
+	k.iy = p.iy;
+	k.layer = p.layer;
+	if (waveMap.count(k) == 0) {
+	  waveMap[k] = sipm::SiPMSensor(sipmprops);
+	}
+	auto &sensor = waveMap[k];
+	sensor.addPhoton(p.time, p.wavelength);
+      }
+}
+
+
+
+void DualCrysCollectionTest::generate_waveform_positions(const std::vector<photon> &photons,
+							 const std::vector<double> &timev,
+							 std::map<key,std::vector<double>> &waveMap,
+							 double sampleRate,
+							 size_t samples) const
+{
+
+      for (const auto &p : photons) {
+	size_t idx = int(round(p.time/sampleRate));
+	key k{.ix = p.ix,
+	      .iy = p.iy,
+	      .layer = p.layer
+	}; 
+      
+	if (waveMap.count(k) == 0) {
+	  auto &vec = waveMap[k];
+	  vec.resize(samples);
+	}
+	auto &pvec = waveMap[k]; 
+    
+	for (; idx < samples; idx++) {
+	  double offset = timev[idx]-p.time;
+	  if (offset < 0.0)
+	    offset = 0; 
+	  pvec[idx] += DESY_SPR(offset); 
+	}
+      }
 
 }

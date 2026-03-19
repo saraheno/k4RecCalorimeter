@@ -65,6 +65,21 @@ struct DualCrysCollectionTest final :
 
   std::tuple<std::vector<photon>, std::vector<photon>> processHit(const edm4hep::SimCalorimeterHit &hit) const; 
 
+
+  // Use DESY Model
+  void generate_waveform_positions(const std::vector<photon> &photons,
+			     std::map<key,sipm::SiPMSensor> &waveMap,
+				   const sipm::SiPMProperties &sipmprops) const;
+
+  // Use Sim SiPM Model 
+  void generate_waveform_positions(const std::vector<photon> &photons,
+				   const std::vector<double> &timev,
+				   std::map<key,std::vector<double>> &waveMap,
+				   double sampleRate,
+				   size_t samples) const;
+
+  
+  
  private:
 
   bool useLayer(CHT::Layout caloLayout, unsigned int layer) const; 
