@@ -17,139 +17,6 @@ DualCrysSiPMAlgo::DualCrysSiPMAlgo(const std::string& name, ISvcLocator* svcloca
 }
 
 
-struct key {
-  int ix;
-  int iy;
-  int layer;
-
-};
-
-bool operator<(const key &lhs, const key &rhs) {
-  int lvalue = (lhs.ix<<3|lhs.iy<<10|lhs.layer<<20); 
-  int rvalue = (rhs.ix<<3|rhs.iy<<10|rhs.layer<<20); 
-  if (lvalue < rvalue)
-    return true;
-  else
-    return false;
-
-}
-    
-
-
-/* Find the nearest wavelength from our fixed set of wavelengths
- This works by rounding the wavelength off to the nearest integer
- then finding the lowest value greater than given rounded wavelength
- and then checking the nearest neighbors for the closest value and returning
- the pair of nearest wavelength and PDE for a given SiPM type
-*/
-
-const std::pair<double,double> DualCrysSiPMAlgo::findnearest(Filter_Type ftype, double wavelength) const {
-  if (wavelength < 0.) 
-    return std::make_pair(0.0,0.0); 
-
-  auto lb = u330_filter_wavelengths.lower_bound(round(wavelength)); 
-  if (ftype == Filter_Type::O58) {
-    lb = o58_filter_wavelengths.lower_bound(round(wavelength));
-  }
-
-
-  
-  int start = *lb;
-  int delta = abs(wavelength - *lb);
-  lb--;
-  int lowerdelta = abs(wavelength - *lb);
-  if (lowerdelta < delta) {
-    start = *lb;
-    delta = lowerdelta;
-  }
-  lb++;
-  lb++;
-  int upperdelta = abs(wavelength - *lb);
-  if (upperdelta < delta) {
-    start = *lb;
-  }
-
-  if (ftype == Filter_Type::U330)
-    return std::make_pair(start, u330_filterMap.at(start));
-  else if (ftype == Filter_Type::O58)
-    return std::make_pair(start, o58_filterMap.at(start));
-  else
-    return std::make_pair(0.0,0.0); 
-
-
-}
-
-const std::pair<double,double> DualCrysSiPMAlgo::findnearest(SiPM_Type stype, double wavelength) const {
-  //info() << "FindNearest Wavelength:" << wavelength << endmsg;
-
-  if (wavelength < 0.) 
-    return std::make_pair(0.0,0.0); 
-
-  auto lb = UV_Wavelengths.lower_bound(round(wavelength)); 
-  if (stype == SiPM_Type::RGB) {
-    lb = RGB_Wavelengths.lower_bound(round(wavelength));
-  }
-
-
-  
-  int start = *lb;
-  int delta = abs(wavelength - *lb);
-  lb--;
-  int lowerdelta = abs(wavelength - *lb);
-  if (lowerdelta < delta) {
-    start = *lb;
-    delta = lowerdelta;
-  }
-  lb++;
-  lb++;
-  int upperdelta = abs(wavelength - *lb);
-  if (upperdelta < delta) {
-    start = *lb;
-  }
-
-  if (stype == SiPM_Type::RGB)
-    return RGB_Map.at(start);
-  else if (stype == SiPM_Type::UV)
-    return UV_Map.at(start); 
-  else
-    return std::make_pair(0.0,0.0); 
-
-}
-
-
-// pulled straight from Resolution.C, need to modify it to use the class parameters
-
-double DualCrysSiPMAlgo::SPR(double now) const
-{
-
-  //  double tMin_  = 0.0;
-  //  double tMax_  = 1000.0;
-
-  double tRise       = 0.853;
-  double tDecay      = 6.538;
-  double tUnderShoot = 101.7;
-  //  double norm        = 0.111051;
-
-
-  double a = 1./ tRise;
-  double b = 1./ tDecay;
-  double A = -a * b / (a - b);
-  double B = -A;
-  double result = A * exp(-a*now) + B * exp(-b*now);
-    
-  double g = 1./ tUnderShoot;
-  double Atmp = -A * g / ( a - g);
-  double Btmp = -B * g / ( b - g);
-  double G = - Atmp - Btmp ;
-  A = Atmp;
-  B = Btmp;
-  result -= A * exp(-a*now) + B * exp(-b*now) + G * exp(-g*now);
-    
-  return result;
-
-}
-
-
 
 StatusCode DualCrysSiPMAlgo::initialize()
 {
@@ -398,8 +265,8 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       // in case our rounding puts us in a higher bin 
       if (offset < 0.0)
 	offset = 0; 
-      wave[idx] += SPR(offset);
-      pwave[idx] += SPR(offset); 
+      wave[idx] += DESY_SPR(offset);
+      pwave[idx] += DESY_SPR(offset); 
     
     }
   }
