@@ -5,6 +5,9 @@
 #include <edm4hep/CalorimeterHitCollection.h>
 #include <edm4hep/MutableCalorimeterHit.h>
 
+using namespace calvision;
+
+
 DECLARE_COMPONENT(DualCrysSiPMAlgo)
 
 DualCrysSiPMAlgo::DualCrysSiPMAlgo(const std::string& name, ISvcLocator* svclocator)

@@ -11,6 +11,9 @@
 #include <edm4hep/MutableCalorimeterHit.h>
 #include <memory>
 
+
+using namespace calvision; 
+
 DECLARE_COMPONENT(DualCrysSiPMSim)
 
 DualCrysSiPMSim::DualCrysSiPMSim(const std::string& name, ISvcLocator* svclocator)

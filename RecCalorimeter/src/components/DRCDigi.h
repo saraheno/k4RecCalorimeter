@@ -32,6 +32,8 @@
 #include <sipm/SiPMSensor.h>
 
 
+using namespace calvision; 
+
 struct DRCDigi final :
 
   k4FWCore::MultiTransformer<

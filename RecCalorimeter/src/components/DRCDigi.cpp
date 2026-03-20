@@ -25,6 +25,9 @@
 
 #include "DualCrysSiPMConstants.h"
 
+
+using namespace calvision; 
+
 DECLARE_COMPONENT(DRCDigi)
 
 
