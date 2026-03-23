@@ -1,4 +1,5 @@
 #include "DualCrysSiPMAlgo.h"
+#include "DualCrysSiPMConstants.h"
 #include <CLHEP/Units/SystemOfUnits.h>
 #include <algorithm>
 #include <edm4hep/CalorimeterHit.h>
@@ -41,6 +42,14 @@ StatusCode DualCrysSiPMAlgo::initialize()
     error() << "Couldn't initialize RndmGenSvc!" << endmsg;
     return StatusCode::FAILURE;
   }
+
+  // init sipms
+  uv_sipm_filter.SetData(calvision::UV_Wvl, calvision::UV_Eff);
+  rgb_sipm_filter.SetData(calvision::RGB_Wvl, calvision::RGB_Eff);
+  
+  // init filters
+  o58_filter.SetData(calvision::o58_wavelengths, calvision::o58_fltreff);
+  u330_filter.SetData(calvision::u330_wavelengths, calvision::u330_fltreff); 
 
   
   info() << "Dual Crystal SiPM Algorithm Initialized" << endmsg; 
@@ -218,11 +227,26 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       continue;
     }
     
-    double wvl,response;
-    double filterwvl, filterresponse;
-    if (ftype != Filter_Type::NONE)
-      std::tie(filterwvl, filterresponse) = findnearest(ftype, p.wavelength); 
-    std::tie(wvl,response) = findnearest(SiPM_Type::RGB, p.wavelength);
+    double response;
+    double filterresponse;
+    switch (ftype) {
+    case calvision::Filter_Type::U330: { 
+      filterresponse = u330_filter.Eval(p.wavelength);
+      break;
+    }
+    case calvision::Filter_Type::O58: {
+      filterresponse = o58_filter.Eval(p.wavelength);
+      break; 
+    }
+    case calvision::Filter_Type::NONE: {
+      filterresponse = 0.;
+      break; 
+    }
+    }
+
+    // Note: Add Choice for UV vs RGB
+    response = rgb_sipm_filter.Eval(p.wavelength); 
+    
     // filter cut
     double  randval =  m_rndmUniform.shoot()*100;
     if (ftype != Filter_Type::NONE) { 

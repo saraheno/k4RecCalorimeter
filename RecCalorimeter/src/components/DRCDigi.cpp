@@ -78,6 +78,7 @@ StatusCode DRCDigi::initialize() {
   std::string algo = m_SiPMAlgorithm.toString();
   if (algo.find("DESY") != std::string::npos) {
     sipmAlgo = SiPM_Algorithm::DESY;
+
   }
   else if (algo.find("SIM_SIPM") != std::string::npos) {
     sipmAlgo = SiPM_Algorithm::SIM_SIPM;
@@ -105,10 +106,6 @@ StatusCode DRCDigi::initialize() {
     sipmProp.setPdeType(sipm::SiPMProperties::PdeType::kSpectrumPde);
     // Set the PDE spectrum
     sipmProp.setPdeSpectrum(m_wavelen.value(), m_sipmEff.value());
-
-    
-
-    
   }
   else {
     error() << algo << " value does not match either DESY or SIM_SIPM" << endmsg;
@@ -116,6 +113,16 @@ StatusCode DRCDigi::initialize() {
     sipmAlgo = SiPM_Algorithm::DESY;
   }
 
+  if (sipmAlgo == SiPM_Algorithm::DESY) {
+    // init sipm response
+    uv_sipm_filter.SetData(calvision::UV_Wvl, calvision::UV_Eff);
+    rgb_sipm_filter.SetData(calvision::RGB_Wvl, calvision::RGB_Eff);
+  }
+
+  
+  // init filters
+  o58_filter.SetData(calvision::o58_wavelengths, calvision::o58_fltreff);
+  u330_filter.SetData(calvision::u330_wavelengths, calvision::u330_fltreff); 
   
   return StatusCode::SUCCESS;
 }
@@ -187,8 +194,8 @@ DRCDigi::operator()(const edm4hep::SimCalorimeterHitCollection &simCaloHits,
   };
   
   auto respfilter = [&](const photon &p) {
-      double wvl, response; 
-      std::tie(wvl,response) = findnearest(SiPM_Type::RGB, p.wavelength);
+      double response; 
+      response = rgb_sipm_filter.Eval(p.wavelength); 
       double  randval = m_rndmUniform.shoot();
       if (randval > response)
 	return true;

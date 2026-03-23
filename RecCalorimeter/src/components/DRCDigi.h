@@ -20,6 +20,7 @@
 
 #include <Gaudi/PluginServiceV2.h>
 #include <GaudiKernel/ISvcLocator.h>
+#include <Math/Interpolator.h>
 #include <edm4hep/SimCalorimeterHit.h>
 #include <edm4hep/TimeSeriesCollection.h>
 #include <random>
@@ -32,7 +33,9 @@
 #include <sipm/SiPMSensor.h>
 
 
-using namespace calvision; 
+using calvision::photon;
+using calvision::key;
+using calvision::SiPM_Algorithm; 
 
 struct DRCDigi final :
 
@@ -122,7 +125,15 @@ struct DRCDigi final :
   Rndm::Numbers m_rndmUniform;
 
 
+  // Filters 
+  ROOT::Math::Interpolator o58_filter;
+  ROOT::Math::Interpolator u330_filter;
 
+  // SiPMs
+  ROOT::Math::Interpolator rgb_sipm_filter;
+  ROOT::Math::Interpolator uv_sipm_filter;
+
+  
   // Sim SiPM Properties
   sipm::SiPMProperties sipmProp;
   
