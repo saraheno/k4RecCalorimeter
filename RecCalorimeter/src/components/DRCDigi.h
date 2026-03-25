@@ -26,6 +26,8 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <memory>
+
 
 #include "DualCrysSiPMConstants.h"
 
@@ -123,15 +125,6 @@ struct DRCDigi final :
   // Random Number Service
   SmartIF<IRndmGenSvc> m_randSvc;
   Rndm::Numbers m_rndmUniform;
-
-
-  // Filters 
-  ROOT::Math::Interpolator o58_filter;
-  ROOT::Math::Interpolator u330_filter;
-
-  // SiPMs
-  ROOT::Math::Interpolator rgb_sipm_filter;
-  ROOT::Math::Interpolator uv_sipm_filter;
 
   
   // Sim SiPM Properties

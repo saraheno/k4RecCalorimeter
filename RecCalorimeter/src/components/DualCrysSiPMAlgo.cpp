@@ -1,6 +1,8 @@
 #include "DualCrysSiPMAlgo.h"
 #include "DualCrysSiPMConstants.h"
 #include <CLHEP/Units/SystemOfUnits.h>
+#include <GaudiKernel/MsgStream.h>
+#include <Math/Interpolator.h>
 #include <algorithm>
 #include <edm4hep/CalorimeterHit.h>
 #include <edm4hep/CalorimeterHitCollection.h>
@@ -43,13 +45,8 @@ StatusCode DualCrysSiPMAlgo::initialize()
     return StatusCode::FAILURE;
   }
 
-  // init sipms
-  uv_sipm_filter.SetData(calvision::UV_Wvl, calvision::UV_Eff);
-  rgb_sipm_filter.SetData(calvision::RGB_Wvl, calvision::RGB_Eff);
-  
-  // init filters
-  o58_filter.SetData(calvision::o58_wavelengths, calvision::o58_fltreff);
-  u330_filter.SetData(calvision::u330_wavelengths, calvision::u330_fltreff); 
+  if (!calvision::filterInit)
+    init_filters(); 
 
   
   info() << "Dual Crystal SiPM Algorithm Initialized" << endmsg; 
@@ -171,7 +168,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       ftype = Filter_Type::O58;
     }
   }
-  
+
 
   switch (ftype) {
   case (Filter_Type::NONE): {
@@ -218,6 +215,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     }
     
   };
+
   
   for (auto &p : totalPhotons) {
 
@@ -231,11 +229,15 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     double filterresponse;
     switch (ftype) {
     case calvision::Filter_Type::U330: { 
-      filterresponse = u330_filter.Eval(p.wavelength);
+      //filterresponse = u330_filter.Eval(p.wavelength);
+      //std::lock_guard<std::mutex> lg(calvision::guard);
+      filterresponse = calvision::u330_filter.Eval(p.wavelength);
       break;
     }
     case calvision::Filter_Type::O58: {
-      filterresponse = o58_filter.Eval(p.wavelength);
+      //filterresponse = o58_filter.Eval(p.wavelength);
+      //std::lock_guard<std::mutex> lg(calvision::guard); 
+      filterresponse = calvision::o58_filter.Eval(p.wavelength);
       break; 
     }
     case calvision::Filter_Type::NONE: {
@@ -245,7 +247,11 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     }
 
     // Note: Add Choice for UV vs RGB
-    response = rgb_sipm_filter.Eval(p.wavelength); 
+    //response = rgb_sipm_filter.Eval(p.wavelength);
+    {
+      //std::lock_guard<std::mutex> lg(calvision::guard);
+      response = calvision::rgb_sipm_filter.Eval(p.wavelength);
+    }
     
     // filter cut
     double  randval =  m_rndmUniform.shoot()*100;

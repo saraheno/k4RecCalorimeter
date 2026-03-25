@@ -1,9 +1,13 @@
 #pragma once
 
 
+#include <memory>
+#include <mutex>
 #include <set>
 #include <map> 
 #include <stdint.h>
+#include <iostream>
+
 
 #include <Math/Interpolator.h>
 
@@ -93,6 +97,17 @@ namespace calvision {
   
 
   double DESY_SPR(double now); 
+
+  thread_local extern  ROOT::Math::Interpolator u330_filter;
+  thread_local extern  ROOT::Math::Interpolator o58_filter;
+  thread_local extern  ROOT::Math::Interpolator rgb_sipm_filter;
+  thread_local extern  ROOT::Math::Interpolator uv_sipm_filter;
+  thread_local extern bool filterInit; 
+
+  extern std::mutex guard; 
+
+  bool init_filters(); 
+  
 
 
 

@@ -135,14 +135,6 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
 											Gaudi::DataHandle::Writer,
 											this}; 
 
-  // SiPMs
-  ROOT::Math::Interpolator rgb_sipm_filter;
-  ROOT::Math::Interpolator uv_sipm_filter;
-  
-  
-  // Filters 
-  ROOT::Math::Interpolator o58_filter;
-  ROOT::Math::Interpolator u330_filter;
 
 
 };

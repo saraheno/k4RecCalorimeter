@@ -5,12 +5,15 @@
 #include <Gaudi/PluginServiceV2.h>
 #include <GaudiKernel/ISvcLocator.h>
 
+#include <Math/Interpolator.h>
 #include <cctype>
 #include <cstdint>
 #include <cstdlib>  // abs
 #include <edm4hep/CalorimeterHitCollection.h>
 #include <edm4hep/TimeSeriesCollection.h>
 #include <k4FWCore/Transformer.h>
+#include <memory>
+#include <mutex>
 #include <sipm/SiPMAnalogSignal.h>
 #include <sipm/SiPMProperties.h>
 #include <sipm/SiPMSensor.h>
@@ -113,16 +116,11 @@ StatusCode DRCDigi::initialize() {
     sipmAlgo = SiPM_Algorithm::DESY;
   }
 
-  if (sipmAlgo == SiPM_Algorithm::DESY) {
-    // init sipm response
-    uv_sipm_filter.SetData(calvision::UV_Wvl, calvision::UV_Eff);
-    rgb_sipm_filter.SetData(calvision::RGB_Wvl, calvision::RGB_Eff);
-  }
 
+  if (!calvision::filterInit) 
+    calvision::init_filters(); 
   
-  // init filters
-  o58_filter.SetData(calvision::o58_wavelengths, calvision::o58_fltreff);
-  u330_filter.SetData(calvision::u330_wavelengths, calvision::u330_fltreff); 
+
   
   return StatusCode::SUCCESS;
 }
@@ -188,14 +186,22 @@ DRCDigi::operator()(const edm4hep::SimCalorimeterHitCollection &simCaloHits,
 
   std::vector<photon> sPhotons;
   std::vector<photon> cPhotons; 
+  std::vector<std::function<bool (const photon &p)>> filterFns;
 
+
+  
   auto wvlfilter = [](const photon &p) {
     return p.wavelength <= 300.0 || p.wavelength >= 1000.0;
   };
+
+  //  std::function<bool (const photon &p)> respFilter;
+
   
   auto respfilter = [&](const photon &p) {
       double response; 
-      response = rgb_sipm_filter.Eval(p.wavelength); 
+      //response = rgb_sipm_filter.Eval(p.wavelength);
+      //std::lock_guard<std::mutex> lg(calvision::guard); 
+      response = calvision::rgb_sipm_filter.Eval(p.wavelength); 
       double  randval = m_rndmUniform.shoot();
       if (randval > response)
 	return true;
@@ -205,7 +211,7 @@ DRCDigi::operator()(const edm4hep::SimCalorimeterHitCollection &simCaloHits,
 
 
   
-  std::vector<std::function<bool (const photon &p)>> filterFns;
+
   filterFns.push_back(wvlfilter);
 
   // Only use our extra response filtering with the DESY Algorithm
