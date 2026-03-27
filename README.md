@@ -4,9 +4,17 @@
 
 The components are available from the Key4hep stack on machines with CVMFS.
 
+
+## Old Instructions instead use the stable branch
 ```
-source /cvmfs/sw-nightlies.hsf.org/key4hep/setup.sh
+# source /cvmfs/sw-nightlies.hsf.org/key4hep/setup.sh
 ```
+
+## Stable branch
+```
+source  /cvmfs/sw.hsf.org/key4hep/setup.sh
+```
+
 
 ## Dependencies
 
