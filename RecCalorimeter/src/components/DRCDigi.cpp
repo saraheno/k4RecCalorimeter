@@ -201,7 +201,12 @@ DRCDigi::operator()(const edm4hep::SimCalorimeterHitCollection &simCaloHits,
       double response; 
       //response = rgb_sipm_filter.Eval(p.wavelength);
       //std::lock_guard<std::mutex> lg(calvision::guard); 
-      response = calvision::rgb_sipm_filter.Eval(p.wavelength); 
+      response = calvision::rgb_sipm_filter.Eval(p.wavelength);
+      if (std::isnan(response)) {
+	info() << p.wavelength << " nm is past SiPM's response curve." << std::endl;
+	response = 0.0;
+      }
+
       double  randval = m_rndmUniform.shoot();
       if (randval > response)
 	return true;

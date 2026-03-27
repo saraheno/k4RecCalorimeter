@@ -232,12 +232,22 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       //filterresponse = u330_filter.Eval(p.wavelength);
       //std::lock_guard<std::mutex> lg(calvision::guard);
       filterresponse = calvision::u330_filter.Eval(p.wavelength);
+      if (std::isnan(filterresponse)) {
+	info() << p.wavelength << " nm is past Filter's response curve." << std::endl;
+	response = 0.0;
+      }
+
       break;
     }
     case calvision::Filter_Type::O58: {
       //filterresponse = o58_filter.Eval(p.wavelength);
       //std::lock_guard<std::mutex> lg(calvision::guard); 
       filterresponse = calvision::o58_filter.Eval(p.wavelength);
+      if (std::isnan(filterresponse)) {
+	info() << p.wavelength << " nm is past Filter's response curve." << std::endl;
+	response = 0.0;
+      }
+
       break; 
     }
     case calvision::Filter_Type::NONE: {
@@ -251,6 +261,10 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     {
       //std::lock_guard<std::mutex> lg(calvision::guard);
       response = calvision::rgb_sipm_filter.Eval(p.wavelength);
+      if (std::isnan(response)) {
+	info() << p.wavelength << " nm is past SiPM's response curve." << std::endl;
+	response = 0.0;
+      }
     }
     
     // filter cut
