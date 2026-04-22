@@ -67,7 +67,7 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
   Gaudi::Property<double> m_norm{this, "norm", 0.111051, "Unsure what this does..."};
   Gaudi::Property<bool> m_U330_Filter{this, "U330", false, "Use U330 Crystal Filter, default no"};
   Gaudi::Property<bool> m_O58_Filter{this, "O58", false, "Use O58 Crystal Filter, default no"};
-  Gaudi::Property<std::string> m_sipmType{this, "sipm_type","RGB" , "SiPM Response type, Broadcom, UV, or RGB"}; 
+  Gaudi::Property<std::string> m_sipmType{this, "sipm_type","RGB" , "SiPM Response type, Broadcom-2x1, UV, or RGB"}; 
   Gaudi::Property<std::string> m_hitCollection{this, "inputHitCollection", "CalorimeterHit",
       "Input containing the collection of photon hits"};
 

@@ -227,8 +227,8 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     sipm_response = &calvision::rgb_sipm_filter;
   else if (m_sipmType == "UV")
     sipm_response = &calvision::uv_sipm_filter;
-  else if (m_sipmType == "Broadcom")
-    sipm_response = &calvision::broadcom_sipm_filter;
+  else if (m_sipmType == "Broadcom-2x1")
+    sipm_response = &calvision::broadcom_2x1_sipm_filter;
   else {
     info() << "Error! Bad SiPM response type chosen! Using RGB" << endmsg; 
     info() << "Types are: RGB, UV, Broadcom" << endmsg;

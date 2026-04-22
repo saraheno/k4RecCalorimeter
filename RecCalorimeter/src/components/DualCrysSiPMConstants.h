@@ -95,16 +95,18 @@ namespace calvision {
   const std::vector<double> UV_Wvl = {361.161,364.766,379.794,387.614,396.624,406.226,411.617,426.594,436.769,455.931,477.492,496.061,517.627,547.583,573.349,598.521,615.299,649.46,671.039,705.202,755.548,773.531,798.108 }; 
   const std::vector<double> UV_Eff = { 0.770121,0.787349,0.879305,0.94252,0.982752,1.,0.982752,0.94252,0.890797,0.816089,0.741381,0.683901,0.620686,0.545978,0.488498,0.448266,0.41379,0.35633,0.327591,0.275867,0.201139,0.178155,0.149416};
 
-  
-  const std::vector<double> Broadcom_Wvl = {260.0,270.0,280.0,286.0,290.0,298.0,304.0,314.0,332.0,342.0,352.0,370.0,384.0,400.0,424.0,446.0,484.0,542.0,574.0,602.0,630.0,668.0,706.0,732.0,780.0,842.0};
-  const std::vector<double> Broadcom_Eff = { 0.062718, 0.107143, 0.159408, 0.219512, 0.27439, 0.331882, 0.391986, 0.428571, 0.446864, 0.483449, 0.506969, 0.530488, 0.569686, 0.611498, 0.632404, 0.611498, 0.55662, 0.452091, 0.415505, 0.389373, 0.339721, 0.28223, 0.237805, 0.20122, 0.148955, 0.094077};
+
+  // Note the Broadcom 2x1 refers to the AFBR-S4N66P024M SiPM Array from Broadcom
+  // https://docs.broadcom.com/doc/AFBR-S4N66P024M-DS
+  const std::vector<double> Broadcom_2x1_Wvl = {260.0,270.0,280.0,286.0,290.0,298.0,304.0,314.0,332.0,342.0,352.0,370.0,384.0,400.0,424.0,446.0,484.0,542.0,574.0,602.0,630.0,668.0,706.0,732.0,780.0,842.0};
+  const std::vector<double> Broadcom_2x1_Eff = { 0.062718, 0.107143, 0.159408, 0.219512, 0.27439, 0.331882, 0.391986, 0.428571, 0.446864, 0.483449, 0.506969, 0.530488, 0.569686, 0.611498, 0.632404, 0.611498, 0.55662, 0.452091, 0.415505, 0.389373, 0.339721, 0.28223, 0.237805, 0.20122, 0.148955, 0.094077};
 
   
   double DESY_SPR(double now); 
 
   thread_local extern  ROOT::Math::Interpolator u330_filter;
   thread_local extern  ROOT::Math::Interpolator o58_filter;
-  thread_local extern  ROOT::Math::Interpolator broadcom_sipm_filter;
+  thread_local extern  ROOT::Math::Interpolator broadcom_2x1_sipm_filter;
   thread_local extern  ROOT::Math::Interpolator rgb_sipm_filter;
   thread_local extern  ROOT::Math::Interpolator uv_sipm_filter;
   thread_local extern bool filterInit; 
