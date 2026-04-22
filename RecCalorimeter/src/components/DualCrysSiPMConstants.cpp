@@ -80,6 +80,7 @@ namespace calvision {
 
   thread_local ROOT::Math::Interpolator u330_filter;
   thread_local ROOT::Math::Interpolator o58_filter;
+  thread_local ROOT::Math::Interpolator broadcom_sipm_filter;
   thread_local ROOT::Math::Interpolator rgb_sipm_filter;
   thread_local ROOT::Math::Interpolator uv_sipm_filter;
 
@@ -95,7 +96,9 @@ namespace calvision {
       std::cout << "Init U330 Filter" << std::endl; 
       calvision::u330_filter.SetData(u330_wavelengths, u330_fltreff);
       std::cout << "Init O58 Filter" << std::endl; 
-      calvision::o58_filter.SetData(o58_wavelengths, o58_fltreff); 
+      calvision::o58_filter.SetData(o58_wavelengths, o58_fltreff);
+      std::cout << "Init Broadcom SiPM Filter" << std::endl;
+      calvision::broadcom_sipm_filter.SetData(Broadcom_Wvl, Broadcom_Eff);
       std::cout << "Init RGB SiPM Filter" << std::endl; 
       calvision::rgb_sipm_filter.SetData(RGB_Wvl, RGB_Eff); 
       std::cout << "Init UV SiPM Filter" << std::endl; 

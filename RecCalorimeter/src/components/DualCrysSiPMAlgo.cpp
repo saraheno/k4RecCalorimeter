@@ -216,6 +216,38 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     
   };
 
+
+  // dummy, find the correct interpolator outside of the loop 
+  
+  ROOT::Math::Interpolator *filter_response = &calvision::u330_filter; 
+  ROOT::Math::Interpolator *sipm_response = &calvision::rgb_sipm_filter;
+
+  
+  if (m_sipmType == "RGB")
+    sipm_response = &calvision::rgb_sipm_filter;
+  else if (m_sipmType == "UV")
+    sipm_response = &calvision::uv_sipm_filter;
+  else if (m_sipmType == "Broadcom")
+    sipm_response = &calvision::broadcom_sipm_filter;
+  else {
+    info() << "Error! Bad SiPM response type chosen! Using RGB" << endmsg; 
+    info() << "Types are: RGB, UV, Broadcom" << endmsg;
+  }
+
+  switch(ftype) {
+  case calvision::Filter_Type::U330: {
+    filter_response = &calvision::u330_filter;
+    break;
+  }
+  case calvision::Filter_Type::O58: {
+    filter_response = &calvision::o58_filter;
+    break;
+  }
+  case calvision::Filter_Type::NONE: {
+    // do nothing
+    break; 
+  }
+  }; 
   
   for (auto &p : totalPhotons) {
 
@@ -227,44 +259,23 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     
     double response;
     double filterresponse;
-    switch (ftype) {
-    case calvision::Filter_Type::U330: { 
-      //filterresponse = u330_filter.Eval(p.wavelength);
-      //std::lock_guard<std::mutex> lg(calvision::guard);
-      filterresponse = calvision::u330_filter.Eval(p.wavelength);
-      if (std::isnan(filterresponse)) {
-	info() << p.wavelength << " nm is past Filter's response curve." << std::endl;
-	response = 0.0;
-      }
 
-      break;
-    }
-    case calvision::Filter_Type::O58: {
-      //filterresponse = o58_filter.Eval(p.wavelength);
-      //std::lock_guard<std::mutex> lg(calvision::guard); 
-      filterresponse = calvision::o58_filter.Eval(p.wavelength);
-      if (std::isnan(filterresponse)) {
-	info() << p.wavelength << " nm is past Filter's response curve." << std::endl;
-	response = 0.0;
-      }
-
-      break; 
-    }
-    case calvision::Filter_Type::NONE: {
+    if (ftype == calvision::Filter_Type::NONE) {
       filterresponse = 0.;
-      break; 
     }
-    }
-
-    // Note: Add Choice for UV vs RGB
-    //response = rgb_sipm_filter.Eval(p.wavelength);
-    {
-      //std::lock_guard<std::mutex> lg(calvision::guard);
-      response = calvision::rgb_sipm_filter.Eval(p.wavelength);
-      if (std::isnan(response)) {
-	info() << p.wavelength << " nm is past SiPM's response curve." << std::endl;
+    else {
+      filterresponse = filter_response->Eval(p.wavelength);
+      if (std::isnan(filterresponse)) {
+	info() << p.wavelength << " nm is past Filter's response curve." << std::endl;
 	response = 0.0;
       }
+    }
+
+
+    response = sipm_response->Eval(p.wavelength);
+    if (std::isnan(response)) {
+      info() << p.wavelength << " nm is past SiPM's response curve." << std::endl;
+      response = 0.0;
     }
     
     // filter cut
