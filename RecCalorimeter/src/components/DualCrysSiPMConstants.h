@@ -53,8 +53,15 @@ namespace calvision {
 
 
   enum class SiPM_Algorithm {
+    FNAL2023,
     DESY,
     SIM_SIPM
+  }; 
+
+  const std::map<std::string, SiPM_Algorithm> sipmAlgoMap = {
+    {"FNAL2023", SiPM_Algorithm::FNAL2023},
+    {"DESY", SiPM_Algorithm::DESY},
+    {"SIM_SIPM", SiPM_Algorithm::SIM_SIPM}
   }; 
 
   enum class Filter_Type {
@@ -69,6 +76,20 @@ namespace calvision {
     BROADCOM
   };
 
+
+  const std::map<std::string, SiPM_Type> sipmTypeMap = {
+    {"RGB", SiPM_Type::RGB},
+    {"UV", SiPM_Type::UV},
+    {"Broadcom-2x1", SiPM_Type::BROADCOM}
+  }; 
+  
+
+  const std::map<std::string, Filter_Type> filterTypeMap = {
+    {"none", Filter_Type::NONE},
+    {"u330", Filter_Type::U330},
+    {"o58", Filter_Type::O58}
+  }; 
+  
   /* We may want to move the SiPM Data into a file or other source eventually.
 
      I took the approach of converting the wavelength doubles into ints in sets and
@@ -101,8 +122,8 @@ namespace calvision {
   const std::vector<double> Broadcom_2x1_Wvl = {260.0,270.0,280.0,286.0,290.0,298.0,304.0,314.0,332.0,342.0,352.0,370.0,384.0,400.0,424.0,446.0,484.0,542.0,574.0,602.0,630.0,668.0,706.0,732.0,780.0,842.0};
   const std::vector<double> Broadcom_2x1_Eff = { 0.062718, 0.107143, 0.159408, 0.219512, 0.27439, 0.331882, 0.391986, 0.428571, 0.446864, 0.483449, 0.506969, 0.530488, 0.569686, 0.611498, 0.632404, 0.611498, 0.55662, 0.452091, 0.415505, 0.389373, 0.339721, 0.28223, 0.237805, 0.20122, 0.148955, 0.094077};
 
-  
   double DESY_SPR(double now); 
+  double FNAL2023_SPR(double now); 
 
   thread_local extern  ROOT::Math::Interpolator u330_filter;
   thread_local extern  ROOT::Math::Interpolator o58_filter;

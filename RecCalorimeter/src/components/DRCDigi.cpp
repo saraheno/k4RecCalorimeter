@@ -11,12 +11,14 @@
 #include <cstdlib>  // abs
 #include <edm4hep/CalorimeterHitCollection.h>
 #include <edm4hep/TimeSeriesCollection.h>
+#include <exception>
 #include <k4FWCore/Transformer.h>
 #include <memory>
 #include <mutex>
 #include <sipm/SiPMAnalogSignal.h>
 #include <sipm/SiPMProperties.h>
 #include <sipm/SiPMSensor.h>
+#include <stdexcept>
 #include <tuple>
 #include "DD4hep/DD4hepUnits.h"
 #include "DD4hep/Detector.h"
@@ -78,48 +80,54 @@ StatusCode DRCDigi::initialize() {
     return StatusCode::FAILURE;
   }
 
-  std::string algo = m_SiPMAlgorithm.toString();
-  if (algo.find("DESY") != std::string::npos) {
-    sipmAlgo = SiPM_Algorithm::DESY;
-
+  try {
+    sipmAlgo = sipmAlgoMap.at(m_SiPMAlgorithm.toString());
   }
-  else if (algo.find("SIM_SIPM") != std::string::npos) {
-    sipmAlgo = SiPM_Algorithm::SIM_SIPM;
-  // setup sipm properties
+  catch(const std::out_of_range& ex) {
+    error() << m_SiPMAlgorithm.toString() << " not found in algorithms" << endmsg;
+    error() << "Using FNAL2023 as default." << endmsg;
+    sipmAlgo = SiPM_Algorithm::FNAL2023; 
+  }
+  
+  if (sipmAlgo == SiPM_Algorithm::SIM_SIPM)
+    {
+      // setup sipm properties
 
-    //sipmProp.setSignalLength(204.8);
-    //    sipmProp.setSampling(0.2);
-    if (m_samplerate > 0.) 
+      //sipmProp.setSignalLength(204.8);
+      //    sipmProp.setSampling(0.2);
+      if (m_samplerate > 0.) 
+	sipmProp.setSampling(m_samplerate);
+      else
+	sipmProp.setSampling(0.2);
+      
+      sipmProp.setSignalLength(sipmProp.sampling()*m_samples);
+      sipmProp.setSize(m_sipmSize);
+      sipmProp.setDcr(m_Dcr);
+      sipmProp.setXt(m_Xt);
       sipmProp.setSampling(m_samplerate);
-    else
-      sipmProp.setSampling(0.2);
-
-    sipmProp.setSignalLength(sipmProp.sampling()*m_samples);
-    sipmProp.setSize(m_sipmSize);
-    sipmProp.setDcr(m_Dcr);
-    sipmProp.setXt(m_Xt);
-    sipmProp.setSampling(m_samplerate);
-    sipmProp.setRecoveryTime(m_recovery);
-    sipmProp.setPitch(m_cellPitch);
-    sipmProp.setAp(m_afterpulse);
-    sipmProp.setFallTimeFast(m_falltimeFast);
-    sipmProp.setRiseTime(m_risetime);
-    sipmProp.setSnr(m_snr);
-    // Set the PDE type to spectrum PDE
-    sipmProp.setPdeType(sipm::SiPMProperties::PdeType::kSpectrumPde);
-    // Set the PDE spectrum
-    sipmProp.setPdeSpectrum(m_wavelen.value(), m_sipmEff.value());
-  }
-  else {
-    error() << algo << " value does not match either DESY or SIM_SIPM" << endmsg;
-    error() << "Defaulting to DESY" << endmsg;
-    sipmAlgo = SiPM_Algorithm::DESY;
-  }
-
+      sipmProp.setRecoveryTime(m_recovery);
+      sipmProp.setPitch(m_cellPitch);
+      sipmProp.setAp(m_afterpulse);
+      sipmProp.setFallTimeFast(m_falltimeFast);
+      sipmProp.setRiseTime(m_risetime);
+      sipmProp.setSnr(m_snr);
+      // Set the PDE type to spectrum PDE
+      sipmProp.setPdeType(sipm::SiPMProperties::PdeType::kSpectrumPde);
+      // Set the PDE spectrum
+      sipmProp.setPdeSpectrum(m_wavelen.value(), m_sipmEff.value());
+    }
 
   if (!calvision::filterInit) 
     calvision::init_filters(); 
   
+  try { 
+    sipmType = sipmTypeMap.at(m_sipmType.toString());
+  }
+  catch (const std::out_of_range  &e) {
+    error() << m_sipmType.toString() << ":" << e.what() << endmsg;
+    error() << "Using RGB as default" << endmsg;
+    sipmType = calvision::SiPM_Type::RGB; 
+  }
 
   
   return StatusCode::SUCCESS;
@@ -177,7 +185,10 @@ DRCDigi::operator()(const edm4hep::SimCalorimeterHitCollection &simCaloHits,
     debug() << "Using DESY for Waveform construction" << endmsg;
     break;
   }
-  
+  case calvision::SiPM_Algorithm::FNAL2023: {
+    debug() << "Using FNAL 2023 SPR for Waveform construction" << endmsg;
+    break; 
+  }  
   };
 
   
@@ -188,6 +199,25 @@ DRCDigi::operator()(const edm4hep::SimCalorimeterHitCollection &simCaloHits,
   std::vector<photon> cPhotons; 
   std::vector<std::function<bool (const photon &p)>> filterFns;
 
+  ROOT::Math::Interpolator *sipm_response = &calvision::rgb_sipm_filter;
+
+
+  switch(sipmType) {
+  case calvision::SiPM_Type::RGB: {
+    sipm_response = &calvision::rgb_sipm_filter;
+    break; 
+  }
+  case calvision::SiPM_Type::UV: {
+    sipm_response = &calvision::uv_sipm_filter;
+    break;
+  }
+  case calvision::SiPM_Type::BROADCOM: {
+    sipm_response = &calvision::broadcom_2x1_sipm_filter;
+    break;
+  }
+  };
+
+  
 
   
   auto wvlfilter = [](const photon &p) {
@@ -201,7 +231,7 @@ DRCDigi::operator()(const edm4hep::SimCalorimeterHitCollection &simCaloHits,
       double response; 
       //response = rgb_sipm_filter.Eval(p.wavelength);
       //std::lock_guard<std::mutex> lg(calvision::guard); 
-      response = calvision::rgb_sipm_filter.Eval(p.wavelength);
+      response = sipm_response->Eval(p.wavelength);
       if (std::isnan(response)) {
 	info() << p.wavelength << " nm is past SiPM's response curve." << std::endl;
 	response = 0.0;
@@ -214,13 +244,10 @@ DRCDigi::operator()(const edm4hep::SimCalorimeterHitCollection &simCaloHits,
   }; 
 
 
-
-  
-
   filterFns.push_back(wvlfilter);
 
-  // Only use our extra response filtering with the DESY Algorithm
-  if (sipmAlgo == SiPM_Algorithm::DESY) 
+  // Only use our extra response filtering with the DESY / FNAL Algorithm
+  if (sipmAlgo == SiPM_Algorithm::DESY || sipmAlgo == SiPM_Algorithm::FNAL2023) 
     filterFns.push_back(respfilter);
 
   
@@ -471,25 +498,30 @@ void DRCDigi::generate_waveform_positions(const std::vector<photon> &photons,
 							 size_t samples) const
 {
 
-      for (const auto &p : photons) {
-	size_t idx = int(round(p.time/sampleRate));
-	key k{.ix = p.ix,
-	      .iy = p.iy,
-	      .layer = p.layer
-	}; 
-      
-	if (waveMap.count(k) == 0) {
-	  auto &vec = waveMap[k];
-	  vec.resize(samples);
-	}
-	auto &pvec = waveMap[k]; 
-    
-	for (; idx < samples; idx++) {
-	  double offset = timev[idx]-p.time;
-	  if (offset < 0.0)
-	    offset = 0; 
-	  pvec[idx] += DESY_SPR(offset); 
-	}
-      }
+  std::function<double(double)> sprFn = DESY_SPR;
 
+  if (sipmAlgo == SiPM_Algorithm::FNAL2023)
+    sprFn = FNAL2023_SPR;
+  
+  for (const auto &p : photons) {
+    size_t idx = int(round(p.time/sampleRate));
+    key k{.ix = p.ix,
+	  .iy = p.iy,
+	  .layer = p.layer
+    }; 
+    
+    if (waveMap.count(k) == 0) {
+      auto &vec = waveMap[k];
+      vec.resize(samples);
+    }
+    auto &pvec = waveMap[k]; 
+    
+    for (; idx < samples; idx++) {
+      double offset = timev[idx]-p.time;
+      if (offset < 0.0)
+	offset = 0; 
+      pvec[idx] += sprFn(offset); 
+    }
+  }
+  
 }

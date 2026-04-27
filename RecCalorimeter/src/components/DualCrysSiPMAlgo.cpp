@@ -7,6 +7,8 @@
 #include <edm4hep/CalorimeterHit.h>
 #include <edm4hep/CalorimeterHitCollection.h>
 #include <edm4hep/MutableCalorimeterHit.h>
+#include <stdexcept>
+#include <thread>
 
 using namespace calvision;
 
@@ -49,6 +51,35 @@ StatusCode DualCrysSiPMAlgo::initialize()
     init_filters(); 
 
   
+  try {
+    sipmAlgo = sipmAlgoMap.at(m_SiPMAlgorithm.toString());
+  }
+  catch(const std::out_of_range& ex) {
+    error() << m_SiPMAlgorithm.toString() << " not found in algorithms" << endmsg;
+    error() << "Using FNAL2023 as default." << endmsg;
+    sipmAlgo = SiPM_Algorithm::FNAL2023; 
+  }
+
+  try { 
+    sipmType = sipmTypeMap.at(m_sipmType.toString());
+  }
+  catch (const std::out_of_range  &e) {
+    error() << m_sipmType.toString() << ":" << e.what() << endmsg;
+    error() << "Using RGB as default" << endmsg;
+    sipmType = calvision::SiPM_Type::RGB; 
+  }
+
+  try {
+    crystal_filter = filterTypeMap.at(m_filter_type.toString());
+  }
+  catch ( const std::out_of_range &e) {
+    error() << "Bad choice for crystal filter:" << e.what();
+    error() << "Applying No crystal filter as default" << endmsg;
+    crystal_filter = calvision::Filter_Type::NONE;
+  }
+
+  init_id = std::this_thread::get_id(); 
+  
   info() << "Dual Crystal SiPM Algorithm Initialized" << endmsg; 
 
   return StatusCode::SUCCESS;
@@ -76,9 +107,10 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   edm4hep::CalorimeterHitCollection* passedCherenkovPhts = 
     m_passedCherenPhotons.createAndPut(); 
   
-  info() << "Sim Hit Size:" << simHits->size() << " :: ";
+  info() << "Sim Hit Size:" << simHits->size() << " :: " ;
   //info() << "Link Size:" << linkCollection->size() << endmsg; 
-  
+  info() << "Init thread:" << init_id << ", current thread:" << 
+    std::this_thread::get_id() << endmsg; 
 
   std::vector<photon> totalPhotons; 
   
@@ -155,35 +187,6 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   std::map<key,std::vector<double>> totalWaveforms;
   std::map<key,std::vector<double>> CherenWaveforms;
   std::map<key,std::vector<double>> ScintWaveforms;
-  Filter_Type ftype = Filter_Type::NONE;
-  if (m_U330_Filter.value() && m_O58_Filter.value()) {
-    info() << "Error! Both filters set active! Using none" << endmsg;
-    ftype = Filter_Type::NONE; 
-  }
-  else { 
-    if (m_U330_Filter.value()) { 
-      ftype = Filter_Type::U330;
-    }
-    if (m_O58_Filter.value()) {
-      ftype = Filter_Type::O58;
-    }
-  }
-
-
-  switch (ftype) {
-  case (Filter_Type::NONE): {
-    info() << "Using no filter on crystal" << endmsg;
-    break;
-  }
-  case (Filter_Type::O58): {
-    info() << "Using O58 filter" << endmsg;
-    break;
-  }
-  case (Filter_Type::U330): {
-    info() << "Using U330 Filter on crystal" << endmsg;
-    break;
-  }
-  }
 
 
   auto storeKilledHit = [&](photon &p) {
@@ -217,37 +220,64 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   };
 
 
-  // dummy, find the correct interpolator outside of the loop 
   
   ROOT::Math::Interpolator *filter_response = &calvision::u330_filter; 
   ROOT::Math::Interpolator *sipm_response = &calvision::rgb_sipm_filter;
 
-  
-  if (m_sipmType == "RGB")
-    sipm_response = &calvision::rgb_sipm_filter;
-  else if (m_sipmType == "UV")
-    sipm_response = &calvision::uv_sipm_filter;
-  else if (m_sipmType == "Broadcom-2x1")
-    sipm_response = &calvision::broadcom_2x1_sipm_filter;
-  else {
-    info() << "Error! Bad SiPM response type chosen! Using RGB" << endmsg; 
-    info() << "Types are: RGB, UV, Broadcom" << endmsg;
-  }
 
-  switch(ftype) {
+  switch(sipmType) {
+  case calvision::SiPM_Type::RGB: {
+    sipm_response = &calvision::rgb_sipm_filter;
+    break; 
+  }
+  case calvision::SiPM_Type::UV: {
+    sipm_response = &calvision::uv_sipm_filter;
+    break;
+  }
+  case calvision::SiPM_Type::BROADCOM: {
+    sipm_response = &calvision::broadcom_2x1_sipm_filter;
+    break;
+  }
+  };
+  
+  switch(crystal_filter) {
   case calvision::Filter_Type::U330: {
+    info() << "Using U330 Filter on crystal" << endmsg;
     filter_response = &calvision::u330_filter;
     break;
   }
   case calvision::Filter_Type::O58: {
+    info() << "Using O58 filter" << endmsg;
     filter_response = &calvision::o58_filter;
     break;
   }
   case calvision::Filter_Type::NONE: {
+    info() << "Using no filter on crystal" << endmsg;
     // do nothing
     break; 
   }
   }; 
+
+  // Waveform model to use
+  
+  std::function<double(double)> sprFn = DESY_SPR;
+
+  switch (sipmAlgo) { 
+  case SiPM_Algorithm::FNAL2023:
+    info() << "Using FNAL2023 Waveform Model" << endmsg; 
+    sprFn = FNAL2023_SPR;
+    break;
+  case SiPM_Algorithm::DESY:
+    info() << "Using DESY Waveform Model" << endmsg; 
+    sprFn = DESY_SPR;
+    break;
+  default:
+    info() << "Unknown Waveform Model, using FNAL2023 as default" << endmsg; 
+    sprFn = FNAL2023_SPR;
+  }; 
+
+
+
   
   for (auto &p : totalPhotons) {
 
@@ -260,7 +290,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     double response;
     double filterresponse;
 
-    if (ftype == calvision::Filter_Type::NONE) {
+    if (crystal_filter == calvision::Filter_Type::NONE) {
       filterresponse = 0.;
     }
     else {
@@ -280,7 +310,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     
     // filter cut
     double  randval =  m_rndmUniform.shoot()*100;
-    if (ftype != Filter_Type::NONE) { 
+    if (crystal_filter != Filter_Type::NONE) { 
       if (randval > filterresponse ) {
 	storeKilledHit(p); 
 	info() << "Skipping " << p.wavelength << " nm photon.";
@@ -323,8 +353,10 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       // in case our rounding puts us in a higher bin 
       if (offset < 0.0)
 	offset = 0; 
-      wave[idx] += DESY_SPR(offset);
-      pwave[idx] += DESY_SPR(offset); 
+      //wave[idx] += FNAL2023_SPR(offset);
+      //pwave[idx] += FNAL2023_SPR(offset); 
+      wave[idx] += sprFn(offset);
+      pwave[idx] += sprFn(offset); 
     
     }
   }

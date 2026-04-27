@@ -11,7 +11,12 @@ namespace calvision {
   */
 
 
-  double DESY_SPR(double now) 
+  double DESY_SPR(double now) {
+    return 0.0;
+  }
+  
+
+  double FNAL2023_SPR(double now) 
   {
 
     //  double tMin_  = 0.0;

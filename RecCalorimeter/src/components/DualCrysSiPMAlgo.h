@@ -22,7 +22,8 @@
 
 
 #include "DualCrysSiPMConstants.h"
-
+#include <map> 
+#include <thread>
 /** @class DualCrysSiPMAlgo
 
     Algorithm for generating waveforms from a template fitting method developed
@@ -35,7 +36,7 @@
 */
 
 
-
+using calvision::SiPM_Algorithm; 
 
 class DualCrysSiPMAlgo : public Gaudi::Algorithm {
  public:
@@ -60,14 +61,22 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
   
  private:
 
+  std::thread::id init_id; 
+  
   // Template Properties
   Gaudi::Property<double> m_Rise{this, "Rise", 0.853, "SiPM SPR Rise Time in ns"};
   Gaudi::Property<double> m_Decay{this, "Decay", 6.538, "SiPM SPR Decay Time in ns"};
   Gaudi::Property<double> m_UnderShoot{this, "Undershoot", 101.7, "SPR Undershoot"};
   Gaudi::Property<double> m_norm{this, "norm", 0.111051, "Unsure what this does..."};
-  Gaudi::Property<bool> m_U330_Filter{this, "U330", false, "Use U330 Crystal Filter, default no"};
-  Gaudi::Property<bool> m_O58_Filter{this, "O58", false, "Use O58 Crystal Filter, default no"};
-  Gaudi::Property<std::string> m_sipmType{this, "sipm_type","RGB" , "SiPM Response type, Broadcom-2x1, UV, or RGB"}; 
+
+
+  calvision::Filter_Type crystal_filter; 
+  Gaudi::Property<std::string> m_filter_type{this, "filter_type", "NONE",
+					     "Applied Crystal Filter, u330, o58, none"}; 
+
+  calvision::SiPM_Type sipmType; 
+  Gaudi::Property<std::string> m_sipmType{this, "sipm_type","RGB",
+					  "SiPM Response type, Broadcom-2x1, UV, or RGB"}; 
   Gaudi::Property<std::string> m_hitCollection{this, "inputHitCollection", "CalorimeterHit",
       "Input containing the collection of photon hits"};
 
@@ -97,6 +106,9 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
                                              "calvision scint waveform collection name"};
   Gaudi::Property<std::string> m_outCherenTimeColl{this, "cherenoutputTimeStructCollection", "CalvisionSiPMCherenWaveform",
                                              "calvision cheren waveform collection name"};
+  SiPM_Algorithm sipmAlgo; 
+  Gaudi::Property<std::string> m_SiPMAlgorithm { this, "SiPMAlgorithm", "FNAL2023",
+						 "The SiPM Algorithm used for waveform construction"}; 
 
 
   // Random Number Service

@@ -91,8 +91,12 @@ struct DRCDigi final :
 
   bool useLayer(CHT::Layout caloLayout, unsigned int layer) const; 
 
+
+  calvision::SiPM_Type sipmType; 
+  Gaudi::Property<std::string> m_sipmType{this, "sipm_type","RGB" , "SiPM Response type, Broadcom-2x1, UV, or RGB"}; 
+  
   SiPM_Algorithm sipmAlgo; 
-  Gaudi::Property<std::string> m_SiPMAlgorithm { this, "SiPMAlgorithm", "DESY",
+  Gaudi::Property<std::string> m_SiPMAlgorithm { this, "SiPMAlgorithm", "FNAL2023",
 						    "The SiPM Algorithm used for waveform construction"}; 
   
   Gaudi::Property<std::string> m_calCollections{this, "calCollections", "DRCNoSegment",
