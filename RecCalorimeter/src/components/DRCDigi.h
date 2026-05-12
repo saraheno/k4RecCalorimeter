@@ -91,6 +91,9 @@ struct DRCDigi final :
 
   bool useLayer(CHT::Layout caloLayout, unsigned int layer) const; 
 
+  calvision::Filter_Type crystal_filter; 
+  Gaudi::Property<std::string> m_filter_type{this, "filter_type", "NONE",
+					     "Applied Crystal Filter, u330, o58, none"}; 
 
   calvision::SiPM_Type sipmType; 
   Gaudi::Property<std::string> m_sipmType{this, "sipm_type","RGB" , "SiPM Response type, Broadcom-2x1, UV, or RGB"}; 

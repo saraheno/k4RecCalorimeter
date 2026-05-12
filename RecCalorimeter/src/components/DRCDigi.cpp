@@ -119,6 +119,16 @@ StatusCode DRCDigi::initialize() {
 
   if (!calvision::filterInit) 
     calvision::init_filters(); 
+
+  try {
+    sipmAlgo = sipmAlgoMap.at(m_SiPMAlgorithm.toString());
+  }
+  catch(const std::out_of_range& ex) {
+    error() << m_SiPMAlgorithm.toString() << " not found in algorithms" << endmsg;
+    error() << "Using FNAL2023 as default." << endmsg;
+    sipmAlgo = SiPM_Algorithm::FNAL2023; 
+  }
+
   
   try { 
     sipmType = sipmTypeMap.at(m_sipmType.toString());
@@ -127,6 +137,15 @@ StatusCode DRCDigi::initialize() {
     error() << m_sipmType.toString() << ":" << e.what() << endmsg;
     error() << "Using RGB as default" << endmsg;
     sipmType = calvision::SiPM_Type::RGB; 
+  }
+
+  try {
+    crystal_filter = filterTypeMap.at(m_filter_type.toString());
+  }
+  catch ( const std::out_of_range &e) {
+    error() << "Bad choice for crystal filter:" << e.what();
+    error() << "Applying No crystal filter as default" << endmsg;
+    crystal_filter = calvision::Filter_Type::NONE;
   }
 
   

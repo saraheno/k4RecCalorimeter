@@ -89,6 +89,47 @@ namespace calvision {
     {"u330", Filter_Type::U330},
     {"o58", Filter_Type::O58}
   }; 
+
+
+
+  /* Usage:
+     PulseSpline *fptrC = new PulseSpline(iopt);
+     TF1 *fC = new TF1("fC", fptrC, &PulseSpline::Evaluate, -10, 1000., 3, "PulseSpline", "Evaluate");
+     or
+    fC.Eval(x);
+    *
+    *  iopt = 0    DESY 2024 PbF2 pulse
+    *  iopt = 1    JLAB 2025 PbF2 pulse at Low Gain
+    *  iopt = 2    JLAB 2025 PbF2 pulse at High Gain
+    *  iopt = 3    Broadcom + S.Los Amp. Jan 2026. 1-pe pulse
+    *  iopt = 4    DESY 2024 1-pe pulse
+    */
+  
+
+  enum class PulseType {
+    DESY24_PbF2,
+    JLAB25_PbF2LG,
+    JLAB25_PbF2HG,
+    SLJan26_SPR,
+    DESY24_SPR
+  };
+
+  class PulseSpline {
+  public:
+    PulseSpline(PulseType);
+    ~PulseSpline();
+    double Evaluate(double*, double*);
+    double Eval(double x);
+    void SetParameters(double *newpars);
+  private:
+    int    nk_ = 15;
+    int    np_ = 6;
+    double p_[15][6];
+    double par[3];
+  };
+
+
+
   
   /* We may want to move the SiPM Data into a file or other source eventually.
 
