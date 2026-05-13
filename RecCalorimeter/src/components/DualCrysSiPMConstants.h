@@ -114,6 +114,15 @@ namespace calvision {
     DESY24_SPR
   };
 
+  const std::map<std::string, PulseType> pulseTypeMap = {
+    {"desy24_pbf2", PulseType::DESY24_PbF2},
+    {"jlab25_pbf2lg", PulseType::JLAB25_PbF2LG},
+    {"jlab25_pbf2hg", PulseType::JLAB25_PbF2HG},
+    {"sljan26_spr", PulseType::SLJan26_SPR},
+    {"desy24_spr", PulseType::DESY24_SPR}
+  }; 
+
+
   class PulseSpline {
   public:
     PulseSpline(PulseType);

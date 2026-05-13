@@ -4,6 +4,7 @@
 #include <GaudiKernel/MsgStream.h>
 #include <Math/Interpolator.h>
 #include <algorithm>
+#include <cctype>
 #include <edm4hep/CalorimeterHit.h>
 #include <edm4hep/CalorimeterHitCollection.h>
 #include <edm4hep/MutableCalorimeterHit.h>
@@ -51,14 +52,7 @@ StatusCode DualCrysSiPMAlgo::initialize()
     init_filters(); 
 
   
-  try {
-    sipmAlgo = sipmAlgoMap.at(m_SiPMAlgorithm.toString());
-  }
-  catch(const std::out_of_range& ex) {
-    error() << m_SiPMAlgorithm.toString() << " not found in algorithms" << endmsg;
-    error() << "Using FNAL2023 as default." << endmsg;
-    sipmAlgo = SiPM_Algorithm::FNAL2023; 
-  }
+
 
   try { 
     sipmType = sipmTypeMap.at(m_sipmType.toString());
@@ -78,6 +72,17 @@ StatusCode DualCrysSiPMAlgo::initialize()
     crystal_filter = calvision::Filter_Type::NONE;
   }
 
+  try {
+    std::string ptype = m_pulseType.toString();
+    std::transform(ptype.begin(), ptype.end(), ptype.begin(), ::tolower); 
+    pulseType = pulseTypeMap.at(ptype); 
+  }
+  catch ( const std::out_of_range &e) {
+    error() << "Bad choice for Pulse Model:" << e.what();
+    error() << "Using SLJan26_SPR (default)" << endmsg;
+    pulseType = calvision::PulseType::SLJan26_SPR; 
+  }
+  
   init_id = std::this_thread::get_id(); 
   
   info() << "Dual Crystal SiPM Algorithm Initialized" << endmsg; 
@@ -259,24 +264,8 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
   }; 
 
   // Waveform model to use
-  
-  std::function<double(double)> sprFn = DESY_SPR;
 
-  switch (sipmAlgo) { 
-  case SiPM_Algorithm::FNAL2023:
-    info() << "Using FNAL2023 Waveform Model" << endmsg; 
-    sprFn = FNAL2023_SPR;
-    break;
-  case SiPM_Algorithm::DESY:
-    info() << "Using DESY Waveform Model" << endmsg; 
-    sprFn = DESY_SPR;
-    break;
-  default:
-    info() << "Unknown Waveform Model, using FNAL2023 as default" << endmsg; 
-    sprFn = FNAL2023_SPR;
-  }; 
-
-
+  PulseSpline pulseModel(pulseType); 
 
   
   for (auto &p : totalPhotons) {
@@ -353,10 +342,8 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
       // in case our rounding puts us in a higher bin 
       if (offset < 0.0)
 	offset = 0; 
-      //wave[idx] += FNAL2023_SPR(offset);
-      //pwave[idx] += FNAL2023_SPR(offset); 
-      wave[idx] += sprFn(offset);
-      pwave[idx] += sprFn(offset); 
+      wave[idx] += pulseModel.Eval(offset);
+      pwave[idx] += pulseModel.Eval(offset); 
     
     }
   }

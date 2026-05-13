@@ -74,9 +74,12 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
   Gaudi::Property<std::string> m_filter_type{this, "filter_type", "NONE",
 					     "Applied Crystal Filter, u330, o58, none"}; 
 
-  calvision::SiPM_Type sipmType; 
+  calvision::SiPM_Type sipmType;
+  calvision::PulseType pulseType; 
   Gaudi::Property<std::string> m_sipmType{this, "sipm_type","RGB",
-					  "SiPM Response type, Broadcom-2x1, UV, or RGB"}; 
+					  "SiPM Response type, Broadcom-2x1, UV, or RGB"};
+  Gaudi::Property<std::string> m_pulseType{this, "pulse_type","sljan26_spr",
+					   "Pulse Model: SLJan26_SPR is default"}; 
   Gaudi::Property<std::string> m_hitCollection{this, "inputHitCollection", "CalorimeterHit",
       "Input containing the collection of photon hits"};
 
@@ -106,9 +109,6 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
                                              "calvision scint waveform collection name"};
   Gaudi::Property<std::string> m_outCherenTimeColl{this, "cherenoutputTimeStructCollection", "CalvisionSiPMCherenWaveform",
                                              "calvision cheren waveform collection name"};
-  SiPM_Algorithm sipmAlgo; 
-  Gaudi::Property<std::string> m_SiPMAlgorithm { this, "SiPMAlgorithm", "FNAL2023",
-						 "The SiPM Algorithm used for waveform construction"}; 
 
 
   // Random Number Service
