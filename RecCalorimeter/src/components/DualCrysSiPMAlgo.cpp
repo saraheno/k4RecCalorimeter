@@ -84,6 +84,11 @@ StatusCode DualCrysSiPMAlgo::initialize()
   }
   
   init_id = std::this_thread::get_id(); 
+
+  sampleInterval = m_sampleInterval;
+  sampleCount = m_sampleCount;
+  info() << "Using " << sampleInterval << " ns interval." << sampleCount << " samples.";
+  info() << endmsg; 
   
   info() << "Dual Crystal SiPM Algorithm Initialized" << endmsg; 
 
@@ -181,11 +186,16 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 
   }
 
-  std::vector<double> xs(1024);
-  std::vector<double> scintSignal(1024);
-  std::vector<double> cherenkovSignal(1024);
-  double dt = 0.2; // sampling time in ns 
-  for (size_t i= 0; i< 1024; i++) {
+  //std::vector<double> xs(1024);
+  //std::vector<double> scintSignal(1024);
+  //std::vector<double> cherenkovSignal(1024);
+  std::vector<double> xs(sampleCount);
+  std::vector<double> scintSignal(sampleCount);
+  std::vector<double> cherenkovSignal(sampleCount);
+
+  
+  double dt = sampleInterval; //0.2; // sampling time in ns 
+  for (size_t i= 0; i< sampleCount; i++) {
     xs[i] = dt*i;
   }
 
@@ -319,25 +329,25 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 
     storePassedHit(p); 
     
-    int idx = int(round(p.time/dt));
+    size_t idx = size_t(round(p.time/dt));
     key k{};
     k.ix = p.ix;
     k.iy = p.iy;
     k.layer = p.layer; 
     if (totalWaveforms.count(k)== 0) {
       auto &vec = totalWaveforms[k];
-      vec.resize(1024);
+      vec.resize(sampleCount);
     }
     
     std::vector<double> &wave = totalWaveforms[k];
     std::vector<double> &pwave = p.photon_type == -22 ? ScintWaveforms[k]  :
       CherenWaveforms[k]; 
-    if (pwave.size() != 1024)
-      pwave.resize(1024);
+    if (pwave.size() != sampleCount)
+      pwave.resize(sampleCount);
     
-    if (wave.size() != 1024) // first time we get here 
-      wave.resize(1024);
-    for (; idx < 1024; idx++) {
+    if (wave.size() != sampleCount) // first time we get here 
+      wave.resize(sampleCount);
+    for (; idx < sampleCount; idx++) {
       double offset = xs[idx]-p.time;
       // in case our rounding puts us in a higher bin 
       if (offset < 0.0)
@@ -360,7 +370,7 @@ StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
     ts.setTime(0);
     ts.setCellID((ix<<3)|(iy<<10)|(layer<<20));
 
-    for (size_t i = 0; i < 1024; i++) {
+    for (size_t i = 0; i < sampleCount; i++) {
       ts.addToAmplitude(wv[i]);
     }
 

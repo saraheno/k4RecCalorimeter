@@ -61,15 +61,15 @@ class DualCrysSiPMAlgo : public Gaudi::Algorithm {
   
  private:
 
-  std::thread::id init_id; 
+  std::thread::id init_id;
+  double sampleInterval = 0.2;
+  size_t sampleCount = 1024; 
+  
   
   // Template Properties
-  Gaudi::Property<double> m_Rise{this, "Rise", 0.853, "SiPM SPR Rise Time in ns"};
-  Gaudi::Property<double> m_Decay{this, "Decay", 6.538, "SiPM SPR Decay Time in ns"};
-  Gaudi::Property<double> m_UnderShoot{this, "Undershoot", 101.7, "SPR Undershoot"};
-  Gaudi::Property<double> m_norm{this, "norm", 0.111051, "Unsure what this does..."};
-
-
+  Gaudi::Property<double> m_sampleInterval{this, "sample_interval", 0.2, "Sampling interval (ns)"};
+  Gaudi::Property<size_t> m_sampleCount{this, "samples", 1024, "# of Samples)"};
+  
   calvision::Filter_Type crystal_filter; 
   Gaudi::Property<std::string> m_filter_type{this, "filter_type", "NONE",
 					     "Applied Crystal Filter, u330, o58, none"}; 
