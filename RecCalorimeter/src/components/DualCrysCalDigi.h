@@ -78,6 +78,7 @@ private:
   Gaudi::Property<std::string> m_detectorNameHcal{this, "detectorNameHcal", "DRFtubeFiber", "Name of HCAL"};
   Gaudi::Property<std::vector<bool>> m_useLayersEcalVec{this, "useLayersEcal", {}, "Enable/disable ECAL layers"};
   Gaudi::Property<std::vector<bool>> m_useLayersHcalVec{this, "useLayersHcal", {}, "Enable/disable HCAL layers"};
+  Gaudi::Property<std::string> m_bitField{this, "bitField", "system:3,ix:-7,iy:-7,slice:3,layer:3,wc1:3,wc2:3,wc3:3","The bitfield used with the ECAL detector"};
 
   std::string m_collName;
 

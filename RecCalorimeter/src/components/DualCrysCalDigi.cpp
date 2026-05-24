@@ -65,17 +65,28 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
 
   // hack for now, hardcode cell id
   auto *detector = m_geoSvc->getDetector();
-
-
   auto &constants = detector->constants();
-  debug() << "Count of constants:" << constants.size() << endmsg;
+  std::string cellid_definition = m_bitField; 
+  if (constants.empty()) {
+    debug() << "No Constants....did you load the geometry?" << endmsg; 
+  }
+  else {
+
+    auto readout = detector->readout(m_detectorNameEcal);
+    info() << "Readout name:" << readout.name() << endmsg;
+    auto cidDesc = readout.segmentation().segmentation()->fieldDescription(); 
+    info() << "Readout Segmentation Field Description:" << cidDesc << endmsg; 
+    cellid_definition = cidDesc; 
+
+  }
+
+
   debug() << "Hit Count:" << SimCaloHits.size() << endmsg; 
   for (auto &[k, v] : constants) {
     debug() << "Detector Constant:" << k << endmsg;
   }
-  //  initString = m_geoSvc->constantAsString(m_encodingStringVariable.value());
-  initString =       "system:3,ix:-7,iy:-7,slice:3,layer:3,wc:3";
-  dd4hep::DDSegmentation::BitFieldCoder bitFieldCoder(initString);  // check!
+
+  dd4hep::DDSegmentation::BitFieldCoder bitFieldCoder(cellid_definition); 
 
 
   for (const auto& hit : SimCaloHits)
