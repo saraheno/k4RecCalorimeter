@@ -36,7 +36,12 @@ DualCrysCalDigi::DualCrysCalDigi(const std::string& aName, ISvcLocator* aSvcLoc)
                            KeyValues("CALCollection", {"ECalEcalCollection"}),
                            KeyValues("HeaderName", {"EventHeader"}),
                        },
-                       {KeyValues("CALOutputCollections", {"CalorimeterHit"})}
+                       {
+			 KeyValues("FrontPhotonCollection", {"FrontPhotons"}),
+			 KeyValues("RearPhotonCollection", {"RearPhotons"}),
+			 KeyValues("OtherPhotonCollection", {"OtherPhotons"}),
+						 
+		       }
 		       ) {
   m_uidSvc = service<IUniqueIDGenSvc>("UniqueIDGenSvc", true);
   if (!m_uidSvc) {
@@ -50,14 +55,18 @@ StatusCode DualCrysCalDigi::initialize() {
   return StatusCode::SUCCESS;
 }
 
-std::tuple<edm4hep::CalorimeterHitCollection> 
+std::tuple<edm4hep::CalorimeterHitCollection,
+	   edm4hep::CalorimeterHitCollection,
+	   edm4hep::CalorimeterHitCollection> 
 DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloHits, const edm4hep::EventHeaderCollection& headers) const {
   debug() << " process event : " << headers[0].getEventNumber() << " - run  " << headers[0].getRunNumber()
           << endmsg;  // headers[0].getRunNumber(),headers[0].getEventNumber()
 
-  auto calcol    = edm4hep::CalorimeterHitCollection();
 
-
+  auto frontHits = edm4hep::CalorimeterHitCollection();
+  auto rearHits = edm4hep::CalorimeterHitCollection();
+  auto otherHits    = edm4hep::CalorimeterHitCollection();
+  
   std::string initString;
 
   std::string colName    = m_calCollections;
@@ -92,16 +101,13 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
   for (const auto& hit : SimCaloHits)
     {
       const int cellID = hit.getCellID();
-      float     energy = hit.getEnergy();
+      
       //Get the layer number
       unsigned int layer = bitFieldCoder.get(cellID, "layer");
       //Check if we want to use this later, else go to the next hit
       if (!useLayer(caloLayout, layer))
 	continue;
-      //Do the digitalization
-      float calibr_coeff = 1.;
-      calibr_coeff       = m_calibrCoeffCal;
-      float hitEnergy    = calibr_coeff * energy;
+
       int slice_id = ((0x7<<17&cellID)>>17);
       int layer_id = ((0x7<<20&cellID)>>20);
 
@@ -111,36 +117,52 @@ DualCrysCalDigi::operator()(const edm4hep::SimCalorimeterHitCollection& SimCaloH
       bool first_pd = (slice_id == 4) && (layer_id == 1);
       bool second_pd = (slice_id == 1) && (layer_id == 0);
 
-      if (first_pd || second_pd) {
-	if (hit.isAvailable()) {
-	  debug() << "Cell ID " << cellID << endmsg; 
-	  debug() << "Hit Slice ID " << slice_id << " ,Layer ID " << layer_id << endmsg;
-	  bool hasTime = false; 
+      auto *collection = &frontHits;
+      std::vector<std::string> cols = { "rear", "front", "other" };
+      size_t colsel = 0; 
+      if (first_pd) { 
+	collection = &rearHits;
+	colsel = 0;
+      }
+      else if (second_pd) { 
+	collection = &frontHits;
+	colsel = 1;
+      }
+      else {
+	colsel = 2; 
+	collection = &otherHits;
+      }
+      
+      if (hit.isAvailable()) {
+	debug() << "Cell ID " << cellID << " collection " << cols[colsel] << endmsg; 
+	debug() << "Hit Slice ID " << slice_id << " ,Layer ID " << layer_id << endmsg;
 
-	  for (auto step = hit.contributions_begin(); 
-	       step != hit.contributions_end(); step++) {
-	    edm4hep::CaloHitContribution contrib = *step;
-	    if (contrib.isAvailable()) {
-	      edm4hep::MutableCalorimeterHit calHit = calcol.create();
+	for (auto step = hit.contributions_begin(); 
+	     step != hit.contributions_end(); step++) {
+	  edm4hep::CaloHitContribution contrib = *step;
+	  if (contrib.isAvailable()) {
+	    auto pdg = contrib.getPDG();
+	    // scint or cherenkov photon, maybe redundant as might get checked upstream 
+	    if (pdg == -22 || pdg == -44) { 
+	      edm4hep::MutableCalorimeterHit calHit = collection->create();
 	      calHit.setCellID(cellID);
 	      calHit.setEnergy(contrib.getEnergy());
 	      calHit.setTime(contrib.getTime());
 	      calHit.setPosition(hit.getPosition());
-	      calHit.setType(contrib.getPDG()); 
-
-	      debug() << contrib.getPDG() << " time:";
-	      debug() << contrib.getTime() << " ns." << endmsg;
+	      calHit.setType(contrib.getPDG());
 	    }
-	    else {
-	      debug() << "Contrib not available" << endmsg;
-	    }
+	    
+	    //debug() << contrib.getPDG() << " time:";
+	    //debug() << contrib.getTime() << " ns." << endmsg;
+	  }
+	  else {
+	    debug() << "Contrib not available" << endmsg;
 	  }
 
 	}
       }
     }
-
-  return std::make_tuple(std::move(calcol));
+  return std::make_tuple(std::move(frontHits),std::move(rearHits),std::move(otherHits));
 }
 
 //StatusCode DualCrysCalDigi::finalize() { return StatusCode::SUCCESS; }

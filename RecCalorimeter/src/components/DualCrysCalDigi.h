@@ -45,7 +45,9 @@
 // and somehow the baseclass template is not used
 struct DualCrysCalDigi final
     : k4FWCore::MultiTransformer<
-          std::tuple<edm4hep::CalorimeterHitCollection>(
+      std::tuple<edm4hep::CalorimeterHitCollection,
+		 edm4hep::CalorimeterHitCollection,
+		 edm4hep::CalorimeterHitCollection>(
               const edm4hep::SimCalorimeterHitCollection&, const edm4hep::EventHeaderCollection&)> {
   
   DualCrysCalDigi(const std::string& name, ISvcLocator* svcLoc);
@@ -53,7 +55,9 @@ struct DualCrysCalDigi final
   StatusCode initialize() override;
   // StatusCode finalize() override;
 
-  std::tuple<edm4hep::CalorimeterHitCollection> operator()(
+  std::tuple<edm4hep::CalorimeterHitCollection,
+	     edm4hep::CalorimeterHitCollection,
+	     edm4hep::CalorimeterHitCollection> operator()(
       const edm4hep::SimCalorimeterHitCollection& simCaloHits,
       const edm4hep::EventHeaderCollection&       headers) const override;
 

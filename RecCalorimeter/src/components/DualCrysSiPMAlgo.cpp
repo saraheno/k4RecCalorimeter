@@ -1,6 +1,7 @@
 #include "DualCrysSiPMAlgo.h"
 #include "DualCrysSiPMConstants.h"
 #include <CLHEP/Units/SystemOfUnits.h>
+#include <GaudiKernel/DataObjID.h>
 #include <GaudiKernel/MsgStream.h>
 #include <Math/Interpolator.h>
 #include <algorithm>
@@ -89,6 +90,19 @@ StatusCode DualCrysSiPMAlgo::initialize()
   sampleCount = m_sampleCount;
   info() << "Using " << sampleInterval << " ns interval." << sampleCount << " samples.";
   info() << endmsg; 
+
+  m_simHits.updateKey(m_hitCollection);
+  info() << "Sim hit key post update:" << m_simHits.fullKey().key() << endmsg;
+
+  m_waveforms.updateKey(m_outTimeColl);
+  m_cherenwaveforms.updateKey(m_outCherenTimeColl);
+  m_scintwaveforms.updateKey(m_outScintTimeColl);
+
+  m_passedScintPhotons.updateKey(m_passedScintCollection);
+  m_killedScintPhotons.updateKey(m_killedScintCollection);
+
+  m_passedCherenPhotons.updateKey(m_passedCherenCollection);
+  m_killedCherenPhotons.updateKey(m_killedCherenCollection); 
   
   info() << "Dual Crystal SiPM Algorithm Initialized" << endmsg; 
 
@@ -100,7 +114,9 @@ StatusCode DualCrysSiPMAlgo::initialize()
 // This builds and returns waveforms for a given set of hits 
 StatusCode DualCrysSiPMAlgo::execute(const EventContext&) const
 {
-  
+
+  info() << "Reading Hits from " << m_hitCollection << endmsg;
+
   const edm4hep::CalorimeterHitCollection* simHits = m_simHits.get();
   //const edm4hep::CaloHitSimCaloHitLinkCollection* linkCollection = m_links.get();
 
